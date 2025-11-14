@@ -1,34 +1,49 @@
+import { STATUS_OPTIONS } from "./constants.js";
+
 export function validateFacility(data) {
   const errors = {};
+  const requiredString = (value) =>
+    typeof value === "string" && value.trim().length > 0;
 
-  // Facility Name: required, non-empty, max 255 chars
-  if (!data.facilityName || data.facilityName.trim().length === 0) {
-    errors.facilityName = 'Facility name is required';
-  } else if (data.facilityName.length > 255) {
-    errors.facilityName = 'Facility name must be ≤ 255 characters';
+  if (!requiredString(data.facilityName)) {
+    errors.facilityName = "Facility name is required.";
+  } else if (data.facilityName.trim().length > 255) {
+    errors.facilityName = "Facility name must be 255 characters or fewer.";
   }
 
-  // Governorate: required
-  if (!data.governorate) {
-    errors.governorate = 'Governorate is required';
+  if (data.establishmentName?.trim().length > 255) {
+    errors.establishmentName =
+      "Establishment name must be 255 characters or fewer.";
   }
 
-  // Facility Status: required, valid enum
-  const validStatuses = ['active', 'inactive', 'pending', 'suspended'];
-  if (!validStatuses.includes(data.facilityStatus)) {
-    errors.facilityStatus = 'Invalid facility status';
+  if (!requiredString(data.governorate)) {
+    errors.governorate = "Governorate is required.";
   }
 
-  // Longitude: required, valid range -180 to 180
-  const lon = parseFloat(data.longitude);
-  if (isNaN(lon) || lon < -180 || lon > 180) {
-    errors.longitude = 'Longitude must be between -180 and 180';
+  if (!STATUS_OPTIONS.includes(data.facilityStatus)) {
+    errors.facilityStatus = "Choose a valid status.";
   }
 
-  // Latitude: required, valid range -90 to 90
-  const lat = parseFloat(data.latitude);
-  if (isNaN(lat) || lat < -90 || lat > 90) {
-    errors.latitude = 'Latitude must be between -90 and 90';
+  if (!requiredString(data.facilityTypeLabel)) {
+    errors.facilityTypeLabel = "Facility type is required.";
+  }
+
+  if (!requiredString(data.facilityOwner)) {
+    errors.facilityOwner = "Facility owner is required.";
+  }
+
+  if (!requiredString(data.facilityClassification)) {
+    errors.facilityClassification = "Classification is required.";
+  }
+
+  const lon = Number.parseFloat(data.longitude);
+  if (!Number.isFinite(lon) || lon < -180 || lon > 180) {
+    errors.longitude = "Longitude must be between -180 and 180 degrees.";
+  }
+
+  const lat = Number.parseFloat(data.latitude);
+  if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
+    errors.latitude = "Latitude must be between -90 and 90 degrees.";
   }
 
   return errors;

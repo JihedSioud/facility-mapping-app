@@ -1,206 +1,305 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../hooks/useAuth';
-import { databases } from '../services/appwrite-client';
-import { validateFacility } from '../utils/validators';
+import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "../../hooks/useAuth.js";
+import { useAppwrite } from "../../hooks/useAppwrite.js";
+import { validateFacility } from "../../utils/validator.js";
+import {
+  getFacilityById,
+  saveFacility,
+} from "../../services/appwriteService.js";
+
+const EMPTY_FORM = {
+  facilityName: "",
+  establishmentName: "",
+  governorate: "",
+  facilityStatus: "active",
+  facilityTypeLabel: "",
+  facilityOwner: "",
+  facilityClassification: "",
+  facilityAffiliation: "",
+  longitude: "",
+  latitude: "",
+};
 
 export default function FacilityForm({ facilityId = null, onSuccess }) {
   const { user } = useAuth();
-  const [formData, setFormData] = useState({
-    facilityName: '',
-    establishmentName: '',
-    governorate: '',
-    facilityStatus: 'active',
-    facilityTypeLabel: '',
-    facilityOwner: '',
-    facilityClassification: '',
-    facilityAffiliation: '',
-    longitude: '',
-    latitude: ''
-  });
+  const [form, setForm] = useState(() => ({ ...EMPTY_FORM }));
   const [errors, setErrors] = useState({});
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [loadingFacility, setLoadingFacility] = useState(Boolean(facilityId));
+  const [message, setMessage] = useState(null);
+  const {
+    governorates,
+    facilityTypes,
+    owners,
+    classifications,
+    statuses,
+  } = useAppwrite();
 
-  // Load existing facility if editing
   useEffect(() => {
-    if (facilityId) {
-      async function loadFacility() {
-        try {
-          const doc = await databases.getDocument('database-id', 'facilities', facilityId);
-          setFormData(doc);
-        } catch (err) {
-          console.error('Error loading facility:', err);
+    let isMounted = true;
+    async function loadFacility() {
+      if (!facilityId) {
+        setLoadingFacility(false);
+        return;
+      }
+      try {
+        const document = await getFacilityById(facilityId);
+        if (document && isMounted) {
+          setForm(() => ({
+            ...EMPTY_FORM,
+            ...document,
+          }));
+        }
+      } catch (error) {
+        console.error("Unable to load facility", error);
+        setMessage({
+          type: "error",
+          text: "Unable to load facility details.",
+        });
+      } finally {
+        if (isMounted) {
+          setLoadingFacility(false);
         }
       }
-      loadFacility();
     }
+    loadFacility();
+    return () => {
+      isMounted = false;
+    };
   }, [facilityId]);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+  const title = useMemo(
+    () => (facilityId ? "Update facility" : "Add new facility"),
+    [facilityId],
+  );
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setForm((previous) => ({
+      ...previous,
+      [name]: value,
+    }));
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: null }));
+    }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    // Validate form
-    const validationErrors = validateFacility(formData);
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    const validation = validateFacility(form);
+    if (Object.keys(validation).length > 0) {
+      setErrors(validation);
       return;
     }
 
-    setLoading(true);
+    setSubmitting(true);
+    setMessage(null);
     try {
-      if (facilityId) {
-        // Update existing
-        await databases.updateDocument('database-id', 'facilities', facilityId, {
-          ...formData,
-          lastEditedBy: user.$id,
-          updatedAt: new Date().toISOString()
-        });
-        // Log edit
-        await databases.createDocument('database-id', 'edits_log', 'unique()', {
-          facilityId,
-          action: 'updated',
-          userId: user.$id,
-          changes: formData,
-          timestamp: new Date().toISOString(),
-          status: 'approved'
-        });
-      } else {
-        // Create new
-        const doc = await databases.createDocument('database-id', 'facilities', 'unique()', {
-          ...formData,
-          createdBy: user.$id,
-          lastEditedBy: user.$id,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        });
-        // Log creation
-        await databases.createDocument('database-id', 'edits_log', 'unique()', {
-          facilityId: doc.$id,
-          action: 'created',
-          userId: user.$id,
-          changes: formData,
-          timestamp: new Date().toISOString(),
-          status: 'approved'
-        });
+      await saveFacility(form, {
+        facilityId,
+        userId: user?.$id,
+      });
+      setMessage({
+        type: "success",
+        text: facilityId
+          ? "Facility updated successfully."
+          : "Facility created successfully.",
+      });
+      if (!facilityId) {
+        setForm({ ...EMPTY_FORM });
       }
-      
       onSuccess?.();
-      alert(facilityId ? 'Facility updated successfully!' : 'Facility created successfully!');
-    } catch (err) {
-      console.error('Submission error:', err);
-      alert('Error saving facility: ' + err.message);
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text:
+          error?.message ??
+          "We were not able to save the facility. Please try again.",
+      });
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-lg">
-      <h2 className="text-2xl font-bold mb-6">{facilityId ? 'Edit Facility' : 'Add New Facility'}</h2>
-
-      <div className="grid grid-cols-2 gap-4">
-        {/* Facility Name */}
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+    >
+      <div className="flex items-center justify-between">
         <div>
-          <label className="block text-sm font-medium mb-1">Facility Name *</label>
-          <input
-            type="text"
-            name="facilityName"
-            value={formData.facilityName}
-            onChange={handleChange}
-            required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md"
-          />
-          {errors.facilityName && <span className="text-red-500 text-xs">{errors.facilityName}</span>}
+          <p className="text-xs uppercase tracking-wider text-slate-400">
+            Data management
+          </p>
+          <h2 className="text-xl font-semibold text-slate-900">{title}</h2>
         </div>
+        {loadingFacility && (
+          <span className="text-xs font-semibold uppercase tracking-wider text-emerald-600">
+            Loading…
+          </span>
+        )}
+      </div>
 
-        {/* Establishment Name */}
-        <div>
-          <label className="block text-sm font-medium mb-1">Establishment Name</label>
-          <input
-            type="text"
-            name="establishmentName"
-            value={formData.establishmentName}
-            onChange={handleChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md"
-          />
+      {message && (
+        <div
+          className={`rounded-xl px-4 py-2 text-sm ${
+            message.type === "success"
+              ? "bg-emerald-50 text-emerald-700"
+              : "bg-rose-50 text-rose-700"
+          }`}
+        >
+          {message.text}
         </div>
+      )}
 
-        {/* Governorate */}
-        <div>
-          <label className="block text-sm font-medium mb-1">Governorate *</label>
-          <select
-            name="governorate"
-            value={formData.governorate}
-            onChange={handleChange}
-            required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md"
-          >
-            <option value="">Select Governorate</option>
-            {/* Populate from governorates collection */}
-          </select>
-          {errors.governorate && <span className="text-red-500 text-xs">{errors.governorate}</span>}
-        </div>
-
-        {/* Facility Status */}
-        <div>
-          <label className="block text-sm font-medium mb-1">Status *</label>
-          <select
-            name="facilityStatus"
-            value={formData.facilityStatus}
-            onChange={handleChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md"
-          >
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-            <option value="pending">Pending</option>
-            <option value="suspended">Suspended</option>
-          </select>
-        </div>
-
-        {/* Type, Owner, Classification, Affiliation... (similar pattern) */}
-
-        {/* Longitude */}
-        <div>
-          <label className="block text-sm font-medium mb-1">Longitude *</label>
-          <input
-            type="number"
-            name="longitude"
-            value={formData.longitude}
-            onChange={handleChange}
-            step="0.0001"
-            required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md"
-          />
-          {errors.longitude && <span className="text-red-500 text-xs">{errors.longitude}</span>}
-        </div>
-
-        {/* Latitude */}
-        <div>
-          <label className="block text-sm font-medium mb-1">Latitude *</label>
-          <input
-            type="number"
-            name="latitude"
-            value={formData.latitude}
-            onChange={handleChange}
-            step="0.0001"
-            required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md"
-          />
-          {errors.latitude && <span className="text-red-500 text-xs">{errors.latitude}</span>}
-        </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Field
+          label="Facility name *"
+          name="facilityName"
+          value={form.facilityName}
+          onChange={handleChange}
+          error={errors.facilityName}
+        />
+        <Field
+          label="Establishment name"
+          name="establishmentName"
+          value={form.establishmentName}
+          onChange={handleChange}
+          error={errors.establishmentName}
+        />
+        <SelectField
+          label="Governorate *"
+          name="governorate"
+          value={form.governorate}
+          onChange={handleChange}
+          options={governorates.map((governorate) => ({
+            value: governorate.name,
+            label: governorate.name,
+          }))}
+          error={errors.governorate}
+        />
+        <SelectField
+          label="Status *"
+          name="facilityStatus"
+          value={form.facilityStatus}
+          onChange={handleChange}
+          options={statuses.map((status) => ({
+            value: status,
+            label: status,
+          }))}
+          error={errors.facilityStatus}
+        />
+        <SelectField
+          label="Facility type *"
+          name="facilityTypeLabel"
+          value={form.facilityTypeLabel}
+          onChange={handleChange}
+          options={facilityTypes.map((type) => ({
+            value: type,
+            label: type,
+          }))}
+          error={errors.facilityTypeLabel}
+        />
+        <SelectField
+          label="Owner *"
+          name="facilityOwner"
+          value={form.facilityOwner}
+          onChange={handleChange}
+          options={owners.map((owner) => ({
+            value: owner,
+            label: owner,
+          }))}
+          error={errors.facilityOwner}
+        />
+        <SelectField
+          label="Classification *"
+          name="facilityClassification"
+          value={form.facilityClassification}
+          onChange={handleChange}
+          options={classifications.map((classification) => ({
+            value: classification,
+            label: classification,
+          }))}
+          error={errors.facilityClassification}
+        />
+        <Field
+          label="Affiliation / Network"
+          name="facilityAffiliation"
+          value={form.facilityAffiliation}
+          onChange={handleChange}
+        />
+        <Field
+          label="Longitude *"
+          name="longitude"
+          type="number"
+          step="0.0001"
+          value={form.longitude}
+          onChange={handleChange}
+          error={errors.longitude}
+        />
+        <Field
+          label="Latitude *"
+          name="latitude"
+          type="number"
+          step="0.0001"
+          value={form.latitude}
+          onChange={handleChange}
+          error={errors.latitude}
+        />
       </div>
 
       <button
         type="submit"
-        disabled={loading}
-        className="mt-6 w-full bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 disabled:bg-gray-400"
+        disabled={submitting}
+        className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:bg-slate-400"
       >
-        {loading ? 'Saving...' : 'Save Facility'}
+        {submitting ? "Saving…" : facilityId ? "Update facility" : "Create facility"}
       </button>
     </form>
+  );
+}
+
+function Field({ label, error, ...props }) {
+  return (
+    <label className="text-sm font-medium text-slate-700">
+      <span className="mb-1 block text-xs uppercase tracking-wide text-slate-500">
+        {label}
+      </span>
+      <input
+        {...props}
+        className={`w-full rounded-xl border px-4 py-2 text-sm focus:outline-none ${
+          error
+            ? "border-rose-500 focus:border-rose-500"
+            : "border-slate-200 focus:border-emerald-500"
+        }`}
+      />
+      {error && <p className="mt-1 text-xs text-rose-600">{error}</p>}
+    </label>
+  );
+}
+
+function SelectField({ label, options, error, ...props }) {
+  return (
+    <label className="text-sm font-medium text-slate-700">
+      <span className="mb-1 block text-xs uppercase tracking-wide text-slate-500">
+        {label}
+      </span>
+      <select
+        {...props}
+        className={`w-full rounded-xl border px-4 py-2 text-sm focus:outline-none ${
+          error
+            ? "border-rose-500 focus:border-rose-500"
+            : "border-slate-200 focus:border-emerald-500"
+        }`}
+      >
+        <option value="">Select</option>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      {error && <p className="mt-1 text-xs text-rose-600">{error}</p>}
+    </label>
   );
 }
