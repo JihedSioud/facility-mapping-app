@@ -34,6 +34,64 @@ const facilitiesSubscriptionResource =
     ? `databases.${env.databaseId}.collections.${env.facilitiesCollectionId}.documents`
     : null;
 
+function resolvePageSize(limit) {
+  const parsed =
+    limit !== undefined ? Number(limit) : Number(env.listLimit ?? 0);
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return parsed;
+  }
+  return 100;
+}
+
+async function fetchAllDocuments(collectionId, baseQueries = [], options = {}) {
+  const pageSize = resolvePageSize(options.limit);
+  const documents = [];
+  let total = null;
+  let cursor = null;
+
+  while (true) {
+    const queries = [
+      ...baseQueries,
+      Query.limit(pageSize),
+      ...(cursor ? [Query.cursorAfter(cursor)] : []),
+    ];
+
+    const response = await databases.listDocuments(
+      env.databaseId,
+      collectionId,
+      queries,
+    );
+
+    if (total === null && typeof response.total === "number") {
+      total = response.total;
+    }
+
+    if (!response.documents.length) {
+      break;
+    }
+
+    documents.push(...response.documents);
+
+    if (
+      response.documents.length < pageSize ||
+      (typeof total === "number" && documents.length >= total)
+    ) {
+      break;
+    }
+
+    const lastDocument = response.documents[response.documents.length - 1];
+    if (!lastDocument?.$id) {
+      break;
+    }
+    cursor = lastDocument.$id;
+  }
+
+  return {
+    total: total ?? documents.length,
+    documents,
+  };
+}
+
 function normalizeNumber(value) {
   const parsed = typeof value === "number" ? value : parseFloat(value);
   return Number.isFinite(parsed) ? parsed : null;
@@ -127,16 +185,10 @@ export async function listFacilities(filters = {}) {
   }
 
   try {
-    const queries = [
-      Query.limit(env.listLimit),
-      Query.orderDesc("updatedAt"),
-      ...buildFilterQueries(filters),
-    ];
-
-    const response = await databases.listDocuments(
-      env.databaseId,
+    const response = await fetchAllDocuments(
       env.facilitiesCollectionId,
-      queries,
+      [Query.orderDesc("updatedAt"), ...buildFilterQueries(filters)],
+      { limit: env.listLimit },
     );
 
     return {
@@ -163,10 +215,10 @@ export async function listGovernorates() {
   }
 
   try {
-    const response = await databases.listDocuments(
-      env.databaseId,
+    const response = await fetchAllDocuments(
       env.governoratesCollectionId,
-      [Query.limit(200), Query.orderAsc("name")],
+      [Query.orderAsc("name")],
+      { limit: 200 },
     );
     return response.documents;
   } catch (error) {
