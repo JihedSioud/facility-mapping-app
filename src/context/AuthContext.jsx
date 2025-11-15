@@ -1,20 +1,9 @@
-import { createContext, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import PropTypes from "prop-types";
 import { ID } from "appwrite";
 import { account } from "../lib/appwrite";
 import env from "../utils/env";
-
-export const AuthContext = createContext({
-  user: null,
-  role: "visitor",
-  loading: true,
-  error: null,
-  login: async () => {},
-  register: async () => {},
-  logout: async () => {},
-  refreshUser: async () => {},
-  isEditor: false,
-  isAdmin: false,
-});
+import { AuthContext } from "./baseContexts.js";
 
 function resolveRoleFromMemberships(memberships = []) {
   const membershipIds = memberships.map((membership) => membership.teamId);
@@ -106,3 +95,7 @@ export function AuthProvider({ children }) {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
+
+AuthProvider.propTypes = {
+  children: PropTypes.node.isRequired,
+};

@@ -1,3 +1,4 @@
+import PropTypes from "prop-types";
 import {
   Bar,
   BarChart,
@@ -14,7 +15,19 @@ import {
 } from "recharts";
 import { useFacilities } from "../../hooks/useFacilities.js";
 
-const CHART_COLORS = ["#0f766e", "#14b8a6", "#f97316", "#6366f1", "#e11d48"];
+const CHART_COLORS = [
+  "#22d3ee",
+  "#f97316",
+  "#a855f7",
+  "#38bdf8",
+  "#22c55e",
+];
+const tooltipStyles = {
+  backgroundColor: "rgba(15,23,42,0.95)",
+  borderColor: "rgba(56,189,248,0.6)",
+  borderRadius: 12,
+  color: "#e2e8f0",
+};
 
 export default function Dashboard() {
   const { stats, isFetching } = useFacilities();
@@ -31,18 +44,18 @@ export default function Dashboard() {
   );
 
   return (
-    <section className="space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="space-y-6 rounded-3xl border border-white/10 bg-slate-900/80 p-6 shadow-2xl shadow-cyan-500/10 backdrop-blur">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-xs uppercase tracking-wider text-slate-400">
+          <p className="text-[10px] uppercase tracking-[0.4em] text-slate-400">
             Analytics
           </p>
-          <h2 className="text-xl font-semibold text-slate-900">
+          <h2 className="text-xl font-semibold text-white">
             Facility dashboard
           </h2>
         </div>
         {isFetching && (
-          <span className="text-xs font-semibold uppercase tracking-wider text-emerald-600">
+          <span className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">
             Updating…
           </span>
         )}
@@ -68,11 +81,11 @@ export default function Dashboard() {
         <ChartCard title="Facilities by governorate">
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={governorateData}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-              <YAxis allowDecimals={false} />
-              <Tooltip />
-              <Bar dataKey="count" fill="#14b8a6" radius={[6, 6, 0, 0]} />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" />
+              <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#94a3b8" }} stroke="#1f2937" />
+              <YAxis allowDecimals={false} tick={{ fill: "#94a3b8" }} stroke="#1f2937" />
+              <Tooltip contentStyle={tooltipStyles} itemStyle={{ color: "#e2e8f0" }} />
+              <Bar dataKey="count" fill="#22d3ee" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -85,7 +98,7 @@ export default function Dashboard() {
                 dataKey="value"
                 nameKey="name"
                 outerRadius={100}
-                label
+                label={{ fill: "#e2e8f0", fontSize: 12 }}
               >
                 {typeData.map((entry, index) => (
                   <Cell
@@ -94,7 +107,7 @@ export default function Dashboard() {
                   />
                 ))}
               </Pie>
-              <Tooltip />
+              <Tooltip contentStyle={tooltipStyles} itemStyle={{ color: "#e2e8f0" }} />
             </PieChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -117,7 +130,7 @@ export default function Dashboard() {
                   />
                 ))}
               </Pie>
-              <Tooltip />
+              <Tooltip contentStyle={tooltipStyles} itemStyle={{ color: "#e2e8f0" }} />
             </PieChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -125,14 +138,14 @@ export default function Dashboard() {
         <ChartCard title="New facilities per month">
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={stats.timeline ?? []}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-              <YAxis allowDecimals={false} />
-              <Tooltip />
+              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+              <XAxis dataKey="month" tick={{ fontSize: 12, fill: "#94a3b8" }} stroke="#1f2937" />
+              <YAxis allowDecimals={false} tick={{ fill: "#94a3b8" }} stroke="#1f2937" />
+              <Tooltip contentStyle={tooltipStyles} itemStyle={{ color: "#e2e8f0" }} />
               <Line
                 type="monotone"
                 dataKey="count"
-                stroke="#6366f1"
+                stroke="#a855f7"
                 strokeWidth={2}
                 dot={{ r: 3 }}
               />
@@ -146,20 +159,32 @@ export default function Dashboard() {
 
 function StatCard({ label, value }) {
   return (
-    <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
-      <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="text-2xl font-semibold text-slate-900">{value}</p>
+    <div className="rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3 shadow-inner shadow-black/40">
+      <p className="text-[10px] uppercase tracking-[0.3em] text-slate-400">
+        {label}
+      </p>
+      <p className="text-2xl font-semibold text-white">{value}</p>
     </div>
   );
 }
 
 function ChartCard({ title, children }) {
   return (
-    <article className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-      <h3 className="pb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
+    <article className="rounded-2xl border border-white/5 bg-slate-900/70 p-4 shadow-lg shadow-black/40">
+      <h3 className="pb-2 text-sm font-semibold uppercase tracking-[0.3em] text-slate-400">
         {title}
       </h3>
       {children}
     </article>
   );
 }
+
+StatCard.propTypes = {
+  label: PropTypes.string.isRequired,
+  value: PropTypes.number,
+};
+
+ChartCard.propTypes = {
+  title: PropTypes.string.isRequired,
+  children: PropTypes.node.isRequired,
+};

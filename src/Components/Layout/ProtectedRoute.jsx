@@ -1,3 +1,4 @@
+import PropTypes from "prop-types";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth.js";
 
@@ -24,3 +25,8 @@ export default function ProtectedRoute({ children, minRole = "editor" }) {
 
   return children;
 }
+
+ProtectedRoute.propTypes = {
+  children: PropTypes.node.isRequired,
+  minRole: PropTypes.oneOf(["visitor", "editor", "admin"]),
+};

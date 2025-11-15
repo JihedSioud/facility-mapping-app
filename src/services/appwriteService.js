@@ -1,5 +1,5 @@
 import { ID, Query } from "appwrite";
-import { client, databases, functions } from "../lib/appwrite";
+import { account, client, databases, functions } from "../lib/appwrite";
 import env, { isAppwriteConfigured } from "../utils/env";
 import sampleFacilities from "../data/sampleFacilities";
 import {
@@ -34,6 +34,30 @@ const facilitiesSubscriptionResource =
     ? `databases.${env.databaseId}.collections.${env.facilitiesCollectionId}.documents`
     : null;
 
+let ensureSessionPromise = null;
+
+async function ensureAppwriteSession() {
+  if (!isAppwriteConfigured) {
+    return;
+  }
+  if (ensureSessionPromise) {
+    return ensureSessionPromise;
+  }
+  ensureSessionPromise = account
+    .get()
+    .catch(async (error) => {
+      if (error?.code === 401 || error?.code === 403) {
+        await account.createAnonymousSession();
+      } else {
+        throw error;
+      }
+    })
+    .finally(() => {
+      ensureSessionPromise = null;
+    });
+  return ensureSessionPromise;
+}
+
 function resolvePageSize(limit) {
   const parsed =
     limit !== undefined ? Number(limit) : Number(env.listLimit ?? 0);
@@ -44,6 +68,7 @@ function resolvePageSize(limit) {
 }
 
 async function fetchAllDocuments(collectionId, baseQueries = [], options = {}) {
+  await ensureAppwriteSession();
   const pageSize = resolvePageSize(options.limit);
   const documents = [];
   let total = null;
@@ -187,7 +212,7 @@ export async function listFacilities(filters = {}) {
   try {
     const response = await fetchAllDocuments(
       env.facilitiesCollectionId,
-      [Query.orderDesc("updatedAt"), ...buildFilterQueries(filters)],
+      [Query.orderDesc("$updatedAt"), ...buildFilterQueries(filters)],
       { limit: env.listLimit },
     );
 
@@ -341,6 +366,7 @@ export async function getFacilityById(facilityId) {
   }
 
   try {
+    await ensureAppwriteSession();
     return await databases.getDocument(
       env.databaseId,
       env.facilitiesCollectionId,
@@ -357,6 +383,7 @@ export async function listEdits({ status, limit = 25 } = {}) {
     return FALLBACK_EDITS.slice(0, limit);
   }
 
+  await ensureAppwriteSession();
   const queries = [Query.orderDesc("$createdAt"), Query.limit(limit)];
   if (status) {
     queries.push(Query.equal("status", status));

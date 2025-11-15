@@ -1,3 +1,5 @@
+/* eslint-env node */
+/* global process */
 import { Client, Databases, Query } from "node-appwrite";
 
 export default async ({ req, res, log, error }) => {
@@ -17,7 +19,6 @@ export default async ({ req, res, log, error }) => {
       longitude,
       latitude,
       governorate,
-      status,
     } = JSON.parse(req.body ?? "{}");
 
     // Validate coordinates

@@ -1,10 +1,5 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-} from "react";
+import { useEffect, useMemo, useRef } from "react";
+import PropTypes from "prop-types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useFilters } from "../hooks/useFilters.js";
 import {
@@ -14,19 +9,7 @@ import {
   listGovernorates,
   subscribeToFacilityChanges,
 } from "../services/appwriteService.js";
-
-export const FacilitiesContext = createContext({
-  facilities: [],
-  stats: {},
-  governorates: [],
-  referenceOptions: {},
-  recentActivity: [],
-  isLoading: false,
-  isFetching: false,
-  error: null,
-  source: "mock",
-  refetch: () => {},
-});
+import { FacilitiesContext } from "./baseContexts.js";
 
 function aggregateByField(facilities, field) {
   return facilities.reduce((accumulator, facility) => {
@@ -106,7 +89,10 @@ export function FacilitiesProvider({ children }) {
     return () => realtimeUnsubRef.current?.();
   }, [queryClient]);
 
-  const facilities = facilitiesQuery.data?.documents ?? [];
+  const facilities = useMemo(
+    () => facilitiesQuery.data?.documents ?? [],
+    [facilitiesQuery.data],
+  );
   const stats = useMemo(() => buildStats(facilities), [facilities]);
 
   const referenceOptions = useMemo(
@@ -151,12 +137,6 @@ export function FacilitiesProvider({ children }) {
   );
 }
 
-export function useFacilitiesContext() {
-  const context = useContext(FacilitiesContext);
-  if (!context) {
-    throw new Error(
-      "useFacilitiesContext must be used within FacilitiesProvider",
-    );
-  }
-  return context;
-}
+FacilitiesProvider.propTypes = {
+  children: PropTypes.node.isRequired,
+};

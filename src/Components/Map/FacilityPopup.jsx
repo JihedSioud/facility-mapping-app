@@ -1,3 +1,5 @@
+import PropTypes from "prop-types";
+
 export default function FacilityPopup({ facility }) {
   return (
     <div className="space-y-1 text-sm">
@@ -34,3 +36,14 @@ export default function FacilityPopup({ facility }) {
     </div>
   );
 }
+
+FacilityPopup.propTypes = {
+  facility: PropTypes.shape({
+    facilityName: PropTypes.string,
+    establishmentName: PropTypes.string,
+    governorate: PropTypes.string,
+    facilityTypeLabel: PropTypes.string,
+    facilityStatus: PropTypes.string,
+    facilityOwner: PropTypes.string,
+  }).isRequired,
+};

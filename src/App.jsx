@@ -19,28 +19,31 @@ export default function App() {
         <FiltersProvider>
           <FacilitiesProvider>
             <BrowserRouter>
-              <div className="min-h-screen bg-slate-50">
+              <div className="relative min-h-screen bg-slate-950 text-slate-100">
+                <div className="pointer-events-none absolute inset-x-0 top-0 z-0 h-64 bg-gradient-to-b from-cyan-500/20 via-transparent to-transparent blur-3xl" />
                 <AppHeader />
-                <Routes>
-                  <Route path="/" element={<ExplorePage />} />
-                  <Route
-                    path="/editor"
-                    element={
-                      <ProtectedRoute minRole="editor">
-                        <EditorConsole />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/admin"
-                    element={
-                      <ProtectedRoute minRole="admin">
-                        <AdminPanel />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
+                <main className="relative z-10">
+                  <Routes>
+                    <Route path="/" element={<ExplorePage />} />
+                    <Route
+                      path="/editor"
+                      element={
+                        <ProtectedRoute minRole="editor">
+                          <EditorConsole />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/admin"
+                      element={
+                        <ProtectedRoute minRole="admin">
+                          <AdminPanel />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                  </Routes>
+                </main>
               </div>
             </BrowserRouter>
           </FacilitiesProvider>

@@ -1,5 +1,5 @@
 import { STATUS_OPTIONS } from "../utils/constants.js";
-import { useFacilitiesContext } from "../context/FacilitiesContext.jsx";
+import { useFacilitiesContext } from "./useFacilities.js";
 
 export function useAppwrite() {
   const { governorates, referenceOptions } = useFacilitiesContext();

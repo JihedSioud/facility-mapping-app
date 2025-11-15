@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import PropTypes from "prop-types";
 import { useFilters } from "../../hooks/useFilters.js";
 import { useAppwrite } from "../../hooks/useAppwrite.js";
 
@@ -27,23 +28,23 @@ export default function FilterPanel() {
   };
 
   return (
-    <div className="space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="space-y-6 rounded-3xl border border-white/10 bg-slate-900/70 p-6 shadow-xl shadow-cyan-500/10 backdrop-blur">
       <header>
-        <p className="text-xs uppercase tracking-wider text-slate-400">
+        <p className="text-[10px] uppercase tracking-[0.4em] text-slate-400">
           Filters
         </p>
-        <h2 className="text-xl font-semibold text-slate-900">
+        <h2 className="text-xl font-semibold text-white">
           Target facilities quickly
         </h2>
       </header>
 
       <div className="space-y-2">
-        <label className="text-xs font-medium uppercase text-slate-500">
+        <label className="text-xs font-medium uppercase tracking-wide text-slate-400">
           Search by name
         </label>
         <input
           type="text"
-          className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm shadow-inner focus:border-emerald-500 focus:outline-none"
+          className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
           placeholder="Type to search..."
           value={filters.searchTerm}
           onChange={(event) =>
@@ -53,7 +54,7 @@ export default function FilterPanel() {
       </div>
 
       <div className="space-y-2">
-        <label className="text-xs font-medium uppercase text-slate-500">
+        <label className="text-xs font-medium uppercase tracking-wide text-slate-400">
           Governorate
         </label>
         <select
@@ -61,7 +62,7 @@ export default function FilterPanel() {
           onChange={(event) =>
             setFilters({ ...filters, governorate: event.target.value })
           }
-          className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+          className="w-full rounded-2xl border border-white/10 bg-slate-900/60 px-4 py-2 text-sm text-white focus:border-cyan-400 focus:outline-none"
         >
           <option value="">All governorates</option>
           {governorates.map((governorate) => (
@@ -117,7 +118,7 @@ export default function FilterPanel() {
       <button
         type="button"
         onClick={resetFilters}
-        className="w-full rounded-xl border border-transparent bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
+        className="w-full rounded-2xl border border-transparent bg-gradient-to-r from-cyan-500 to-blue-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-cyan-500/30 transition hover:brightness-110"
       >
         Reset filters
       </button>
@@ -135,10 +136,10 @@ function MultiSelectGroup({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <label className="text-xs font-medium uppercase text-slate-500">
+        <label className="text-xs font-medium uppercase tracking-wide text-slate-400">
           {label}
         </label>
-        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+        <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.25em] text-slate-300">
           {badgeText}
         </span>
       </div>
@@ -152,8 +153,8 @@ function MultiSelectGroup({
               onClick={() => onToggle(option)}
               className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
                 active
-                  ? "border-emerald-600 bg-emerald-50 text-emerald-700"
-                  : "border-slate-200 text-slate-600 hover:border-slate-300"
+                  ? "border-transparent bg-gradient-to-r from-cyan-500 to-indigo-500 text-white shadow shadow-cyan-500/30"
+                  : "border-white/15 text-slate-300 hover:border-cyan-400/60 hover:text-white"
               }`}
             >
               {option}
@@ -164,3 +165,11 @@ function MultiSelectGroup({
     </div>
   );
 }
+
+MultiSelectGroup.propTypes = {
+  label: PropTypes.string.isRequired,
+  options: PropTypes.arrayOf(PropTypes.string).isRequired,
+  selected: PropTypes.arrayOf(PropTypes.string).isRequired,
+  onToggle: PropTypes.func.isRequired,
+  badgeText: PropTypes.string,
+};

@@ -1,11 +1,7 @@
-import { createContext, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import PropTypes from "prop-types";
 import { FILTER_DEFAULTS } from "../utils/constants";
-
-export const FiltersContext = createContext({
-  filters: FILTER_DEFAULTS,
-  setFilters: () => {},
-  resetFilters: () => {},
-});
+import { FiltersContext } from "./baseContexts.js";
 
 export function FiltersProvider({ children }) {
   const [filters, setFilters] = useState(() => ({ ...FILTER_DEFAULTS }));
@@ -25,3 +21,7 @@ export function FiltersProvider({ children }) {
     </FiltersContext.Provider>
   );
 }
+
+FiltersProvider.propTypes = {
+  children: PropTypes.node.isRequired,
+};

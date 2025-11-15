@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import PropTypes from "prop-types";
 import { useAuth } from "../../hooks/useAuth.js";
 import { useAppwrite } from "../../hooks/useAppwrite.js";
 import { validateFacility } from "../../utils/validator.js";
@@ -303,3 +304,32 @@ function SelectField({ label, options, error, ...props }) {
     </label>
   );
 }
+
+FacilityForm.propTypes = {
+  facilityId: PropTypes.string,
+  onSuccess: PropTypes.func,
+};
+
+Field.propTypes = {
+  label: PropTypes.string.isRequired,
+  error: PropTypes.string,
+  name: PropTypes.string,
+  type: PropTypes.string,
+  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  onChange: PropTypes.func,
+};
+
+SelectField.propTypes = {
+  label: PropTypes.string.isRequired,
+  options: PropTypes.arrayOf(
+    PropTypes.shape({
+      value: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
+        .isRequired,
+      label: PropTypes.string.isRequired,
+    }),
+  ).isRequired,
+  error: PropTypes.string,
+  name: PropTypes.string,
+  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  onChange: PropTypes.func,
+};

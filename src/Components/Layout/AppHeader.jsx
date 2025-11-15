@@ -12,17 +12,22 @@ export default function AppHeader() {
   const { user, role, logout, loading } = useAuth();
 
   return (
-    <header className="border-b border-slate-200 bg-white">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-4">
-        <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-            Syrian PHC Platform
-          </p>
-          <p className="text-2xl font-semibold text-slate-900">
-            Health Facilities GIS
-          </p>
+    <header className="border-b border-white/10 bg-slate-950/70 backdrop-blur supports-[backdrop-filter]:bg-slate-950/40">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-5 text-slate-100">
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 text-lg font-black text-white shadow-lg shadow-cyan-500/40">
+            PH
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.35em] text-cyan-200/80">
+              Syrian PHC Platform
+            </p>
+            <p className="text-2xl font-semibold text-white">
+              Health Facilities GIS
+            </p>
+          </div>
         </div>
-        <nav className="flex flex-wrap items-center gap-3 text-sm font-semibold text-slate-600">
+        <nav className="flex flex-wrap items-center gap-3 text-sm font-semibold text-slate-300">
           {NAV_LINKS.map((link) => {
             const allowed = link.roles.includes(role);
             return (
@@ -30,11 +35,11 @@ export default function AppHeader() {
                 key={link.to}
                 to={link.to}
                 className={({ isActive }) =>
-                  `rounded-full px-4 py-2 ${
+                  `rounded-full px-4 py-2 transition ${
                     isActive
-                      ? "bg-emerald-600 text-white"
-                      : "bg-slate-100 text-slate-700"
-                  } ${allowed ? "" : "pointer-events-none opacity-40"}`
+                      ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow shadow-cyan-500/40"
+                      : "bg-white/5 text-slate-300 hover:bg-white/10"
+                  } ${allowed ? "" : "pointer-events-none opacity-30"}`
                 }
               >
                 {link.label}
@@ -46,29 +51,29 @@ export default function AppHeader() {
           {user ? (
             <>
               <div className="text-right">
-                <p className="font-semibold text-slate-900">{user.email}</p>
-                <p className="text-xs uppercase tracking-wide text-slate-500">
+                <p className="font-semibold text-white">{user.email}</p>
+                <p className="text-[10px] uppercase tracking-widest text-slate-400">
                   {role}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={logout}
-                className="rounded-full border border-slate-200 px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50"
+                className="rounded-full border border-white/10 px-4 py-2 font-semibold text-white transition hover:border-white/30 hover:bg-white/5"
               >
                 Sign out
               </button>
             </>
           ) : loading ? (
-            <span className="text-xs uppercase tracking-wide text-slate-500">
+            <span className="text-xs uppercase tracking-wide text-slate-400">
               Checking session…
             </span>
           ) : (
             <details className="relative">
-              <summary className="cursor-pointer rounded-full border border-slate-200 px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50">
+              <summary className="cursor-pointer rounded-full border border-white/10 px-4 py-2 font-semibold text-white transition hover:border-white/30 hover:bg-white/5">
                 Sign in
               </summary>
-              <div className="absolute right-0 z-50 mt-2 w-72">
+              <div className="absolute right-0 z-50 mt-2 w-72 rounded-2xl border border-white/10 bg-slate-900/90 p-4 shadow-2xl shadow-cyan-500/20 backdrop-blur">
                 <AuthPanel />
               </div>
             </details>
