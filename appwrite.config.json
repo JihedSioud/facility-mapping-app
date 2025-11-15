@@ -282,11 +282,22 @@
                     "encrypt": false
                 },
                 {
-                    "key": "boundary",
-                    "type": "polygon",
+                    "key": "name_AR",
+                    "type": "string",
                     "required": true,
                     "array": false,
-                    "default": null
+                    "size": 50,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "boundary",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 9999999,
+                    "default": null,
+                    "encrypt": false
                 }
             ],
             "indexes": []
