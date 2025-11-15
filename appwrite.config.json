@@ -51,8 +51,8 @@
             "events": [],
             "schedule": "",
             "timeout": 15,
-            "entrypoint": "index.js",
-            "commands": "npm install && npm run build",
+            "entrypoint": "src/main.js",
+            "commands": "npm install",
             "specification": "s-0.5vcpu-512mb",
             "path": "functions/validate-facility-edit"
         }
