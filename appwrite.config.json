@@ -43,7 +43,7 @@
         {
             "$id": "69151afa0020b2501364",
             "execute": [],
-            "name": "facility-mapping-app",
+            "name": "validate-facility-edit",
             "enabled": true,
             "logging": true,
             "runtime": "node-22",
@@ -54,7 +54,7 @@
             "entrypoint": "index.js",
             "commands": "npm install && npm run build",
             "specification": "s-0.5vcpu-512mb",
-            "path": "functions/facility-mapping-app"
+            "path": "functions/validate-facility-edit"
         }
     ],
     "tablesDB": [
@@ -290,6 +290,16 @@
                 }
             ],
             "indexes": []
+        }
+    ],
+    "teams": [
+        {
+            "$id": "6917b809000ab291934b",
+            "name": "editors"
+        },
+        {
+            "$id": "6917b82e000c24526dd8",
+            "name": "admins"
         }
     ]
 }
