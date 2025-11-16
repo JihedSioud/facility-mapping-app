@@ -67,7 +67,9 @@
     "tables": [
         {
             "$id": "facilities",
-            "$permissions": [],
+             "$permissions": [
+                "read(\"any\")"
+            ],
             "databaseId": "690f4998001bac0561d9",
             "name": "Facilities",
             "enabled": true,
@@ -203,7 +205,9 @@
         },
         {
             "$id": "edits_log",
-            "$permissions": [],
+             "$permissions": [
+                "read(\"any\")"
+            ],
             "databaseId": "690f4998001bac0561d9",
             "name": "Edits Log",
             "enabled": true,
@@ -266,7 +270,9 @@
         },
         {
             "$id": "governorates",
-            "$permissions": [],
+             "$permissions": [
+                "read(\"any\")"
+            ],
             "databaseId": "690f4998001bac0561d9",
             "name": "Governorates",
             "enabled": true,
