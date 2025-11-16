@@ -122,6 +122,21 @@ const STATUS_REPLACEMENTS = new Set([
   "تعمل ولكن لا يمكن الوصول اليه لسبب أخر (يرجى التحديد)",
 ]);
 
+function canonicalizeLabel(raw) {
+  if (!raw) return "";
+  const trimmed = raw.toString().trim();
+  if (!trimmed) return "";
+  if (trimmed.length <= 5 || trimmed.includes("-")) {
+    return trimmed.toUpperCase();
+  }
+  return trimmed
+    .split(/\s+/)
+    .map(
+      (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase(),
+    )
+    .join(" ");
+}
+
 function normalizeGovernorate(value) {
   if (typeof value !== "string") {
     return value ?? "";
@@ -185,9 +200,15 @@ function mapFacilityDocument(document = {}) {
       "",
     governorate,
     facilityStatus,
-    facilityTypeLabel: document.facilityTypeLabel ?? document.type ?? "",
-    facilityOwner: document.facilityOwner ?? document.Owner ?? "",
-    facilityAffiliation: document.facilityAffiliation ?? document.FOLLOWS ?? "",
+    facilityTypeLabel: canonicalizeLabel(
+      document.facilityTypeLabel ?? document.type ?? "",
+    ),
+    facilityOwner: canonicalizeLabel(
+      document.facilityOwner ?? document.Owner ?? "",
+    ),
+    facilityAffiliation: canonicalizeLabel(
+      document.facilityAffiliation ?? document.FOLLOWS ?? "",
+    ),
     longitude,
     latitude,
     location,
@@ -243,9 +264,9 @@ function mapFacilityFormToAppwrite(payload = {}) {
     governorate,
     Governorate: governorate,
     STATUS: normalizeStatus(payload.facilityStatus ?? ""),
-    type: payload.facilityTypeLabel ?? "",
-    Owner: payload.facilityOwner ?? "",
-    FOLLOWS: payload.facilityAffiliation ?? "",
+    type: canonicalizeLabel(payload.facilityTypeLabel ?? ""),
+    Owner: canonicalizeLabel(payload.facilityOwner ?? ""),
+    FOLLOWS: canonicalizeLabel(payload.facilityAffiliation ?? ""),
     X: longitude ?? undefined,
     Y: latitude ?? undefined,
     Location: location,
@@ -272,12 +293,26 @@ function applyFiltersLocally(facilities, filters = {}) {
     searchTerm = "",
   } = filters;
 
+  const normalizeFilterValue = (value) =>
+    (value ?? "").toString().trim().toLowerCase();
+
   const loweredSearch = searchTerm.trim().toLowerCase();
   const normalizedGovernorate = normalizeGovernorate(governorate);
 
   return facilities.filter((facility) => {
     const normalizedStatus = normalizeStatus(
       facility.facilityStatus ?? facility.STATUS ?? "",
+    );
+    const facilityTypeValue = normalizeFilterValue(
+      canonicalizeLabel(facility.facilityTypeLabel ?? facility.type ?? ""),
+    );
+    const facilityOwnerValue = normalizeFilterValue(
+      canonicalizeLabel(facility.facilityOwner ?? facility.Owner ?? ""),
+    );
+    const facilityAffiliationValue = normalizeFilterValue(
+      canonicalizeLabel(
+        facility.facilityAffiliation ?? facility.FOLLOWS ?? "",
+      ),
     );
 
     if (
@@ -293,18 +328,28 @@ function applyFiltersLocally(facilities, filters = {}) {
 
     if (
       facilityTypes.length > 0 &&
-      !facilityTypes.includes(facility.facilityTypeLabel)
+      !facilityTypes.some(
+        (type) => normalizeFilterValue(type) === facilityTypeValue,
+      )
     ) {
       return false;
     }
 
-    if (owners.length > 0 && !owners.includes(facility.facilityOwner)) {
+    if (
+      owners.length > 0 &&
+      !owners.some(
+        (owner) => normalizeFilterValue(owner) === facilityOwnerValue,
+      )
+    ) {
       return false;
     }
 
     if (
       affiliations.length > 0 &&
-      !affiliations.includes(facility.facilityAffiliation)
+      !affiliations.some(
+        (affiliation) =>
+          normalizeFilterValue(affiliation) === facilityAffiliationValue,
+      )
     ) {
       return false;
     }
@@ -341,13 +386,22 @@ function buildFilterQueries(filters = {}) {
     queries.push(Query.equal("STATUS", Array.from(queryStatuses)));
   }
   if (filters.facilityTypes?.length) {
-    queries.push(Query.equal("type", filters.facilityTypes));
+    const normalizedTypes = filters.facilityTypes.map((type) =>
+      canonicalizeLabel(type),
+    );
+    queries.push(Query.equal("type", normalizedTypes));
   }
   if (filters.owners?.length) {
-    queries.push(Query.equal("Owner", filters.owners));
+    const normalizedOwners = filters.owners.map((owner) =>
+      canonicalizeLabel(owner),
+    );
+    queries.push(Query.equal("Owner", normalizedOwners));
   }
   if (filters.affiliations?.length) {
-    queries.push(Query.equal("FOLLOWS", filters.affiliations));
+    const normalizedAffiliations = filters.affiliations.map((aff) =>
+      canonicalizeLabel(aff),
+    );
+    queries.push(Query.equal("FOLLOWS", normalizedAffiliations));
   }
   if (filters.searchTerm?.trim()?.length > 1) {
     const term = filters.searchTerm.trim();
@@ -633,26 +687,36 @@ export async function inviteUserToTeam({ email, name = "", role = "member", team
 }
 
 export function deriveReferenceOptions(facilities = []) {
-  const unique = (values, preset = []) => {
-    const set = new Set(preset);
-    values.forEach((value) => {
-      if (value) {
-        set.add(value);
+  const uniqueCaseInsensitive = (values, preset = []) => {
+    const map = new Map();
+
+    [...preset, ...values].forEach((value) => {
+      const display = canonicalizeLabel(value);
+      if (!display) return;
+      const key = display.toLowerCase();
+      if (!map.has(key)) {
+        map.set(key, display);
       }
     });
-    return Array.from(set).sort();
+
+    return Array.from(map.values()).sort((a, b) =>
+      a.toString().localeCompare(b.toString(), undefined, { sensitivity: "base" }),
+    );
   };
 
   return {
-    facilityTypes: unique(
+    facilityTypes: uniqueCaseInsensitive(
       facilities.map((facility) => facility.facilityTypeLabel),
     ),
-    owners: unique(
+    owners: uniqueCaseInsensitive(
       facilities.map((facility) => facility.facilityOwner),
     ),
-    affiliations: unique(
+    affiliations: uniqueCaseInsensitive(
       facilities.map((facility) => facility.facilityAffiliation),
     ),
-    statuses: unique(facilities.map((facility) => facility.facilityStatus)),
+    statuses: uniqueCaseInsensitive(
+      facilities.map((facility) => facility.facilityStatus),
+      [],
+    ),
   };
 }

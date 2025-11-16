@@ -8,6 +8,7 @@ import {
   Pie,
   PieChart,
   ResponsiveContainer,
+  Legend,
   Tooltip,
   XAxis,
   YAxis,
@@ -44,6 +45,12 @@ export default function Dashboard() {
     ([name, count]) => ({ name, value: count }),
   );
   const ownershipData = Object.entries(stats.byOwnerCategory ?? {}).map(
+    ([name, count]) => ({
+      name,
+      value: count,
+    }),
+  );
+  const affiliationData = Object.entries(stats.byAffiliation ?? {}).map(
     ([name, count]) => ({
       name,
       value: count,
@@ -170,6 +177,35 @@ export default function Dashboard() {
                   />
                 ))}
               </Pie>
+              <Tooltip contentStyle={tooltipStyles} itemStyle={{ color: "#e2e8f0" }} />
+            </PieChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <ChartCard title="Facilities by affiliation">
+          <ResponsiveContainer width="100%" height={280}>
+            <PieChart>
+              <Pie
+                data={affiliationData}
+                dataKey="value"
+                nameKey="name"
+                innerRadius={40}
+                outerRadius={90}
+                paddingAngle={3}
+                label={false}
+              >
+                {affiliationData.map((entry, index) => (
+                  <Cell
+                    key={entry.name}
+                    fill={CHART_COLORS[index % CHART_COLORS.length]}
+                  />
+                ))}
+              </Pie>
+              <Legend
+                verticalAlign="bottom"
+                height={48}
+                wrapperStyle={{ color: "#cbd5e1", fontSize: 12 }}
+              />
               <Tooltip contentStyle={tooltipStyles} itemStyle={{ color: "#e2e8f0" }} />
             </PieChart>
           </ResponsiveContainer>

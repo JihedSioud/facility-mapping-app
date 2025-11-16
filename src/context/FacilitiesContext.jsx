@@ -132,17 +132,41 @@ function buildStats(facilities) {
     return "Other / Unknown";
   };
 
+  const ownerBreakdown = facilities.reduce(
+    (accumulator, facility) => {
+      const owner =
+        facility.Owner ?? facility.facilityOwner ?? "Other / Unknown";
+      accumulator.byOwner[owner] = (accumulator.byOwner[owner] ?? 0) + 1;
+
+      const ownerCategory = categorizeOwner(owner);
+      accumulator.byOwnerCategory[ownerCategory] =
+        (accumulator.byOwnerCategory[ownerCategory] ?? 0) + 1;
+      return accumulator;
+    },
+    { byOwner: {}, byOwnerCategory: {} },
+  );
+
+  const affiliationBreakdown = facilities.reduce(
+    (accumulator, facility) => {
+      const affiliation =
+        facility.FOLLOWS ??
+        facility.facilityAffiliation ??
+        facility.affiliation ??
+        "Other / Unknown";
+      accumulator[affiliation] = (accumulator[affiliation] ?? 0) + 1;
+      return accumulator;
+    },
+    {},
+  );
+
   return {
     total: facilities.length,
     byGovernorate: aggregateByField(facilities, "governorate"),
     byType: aggregateByField(facilities, "facilityTypeLabel"),
     byStatus: aggregateByField(facilities, "facilityStatus"),
-    byOwner: aggregateByField(facilities, "facilityOwner"),
-    byOwnerCategory: aggregateByField(
-      facilities,
-      (facility) =>
-        categorizeOwner(facility.facilityOwner ?? facility.Owner),
-    ),
+    byOwner: ownerBreakdown.byOwner,
+    byOwnerCategory: ownerBreakdown.byOwnerCategory,
+    byAffiliation: affiliationBreakdown,
     timeline: buildTimeline(facilities),
     lastUpdated: facilities
       .map((facility) => facility.updatedAt)
