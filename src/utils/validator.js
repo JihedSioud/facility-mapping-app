@@ -32,8 +32,8 @@ export function validateFacility(data) {
     errors.facilityOwner = "Facility owner is required.";
   }
 
-  if (!requiredString(data.facilityClassification)) {
-    errors.facilityClassification = "Classification is required.";
+  if (!requiredString(data.facilityAffiliation)) {
+    errors.facilityAffiliation = "Affiliated organization is required.";
   }
 
   const lon = Number.parseFloat(data.longitude);

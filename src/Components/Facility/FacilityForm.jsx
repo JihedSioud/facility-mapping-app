@@ -15,7 +15,6 @@ const EMPTY_FORM = {
   facilityStatus: "active",
   facilityTypeLabel: "",
   facilityOwner: "",
-  facilityClassification: "",
   facilityAffiliation: "",
   longitude: "",
   latitude: "",
@@ -28,13 +27,8 @@ export default function FacilityForm({ facilityId = null, onSuccess }) {
   const [submitting, setSubmitting] = useState(false);
   const [loadingFacility, setLoadingFacility] = useState(Boolean(facilityId));
   const [message, setMessage] = useState(null);
-  const {
-    governorates,
-    facilityTypes,
-    owners,
-    classifications,
-    statuses,
-  } = useAppwrite();
+  const { governorates, facilityTypes, owners, affiliations, statuses } =
+    useAppwrite();
 
   useEffect(() => {
     let isMounted = true;
@@ -213,21 +207,15 @@ export default function FacilityForm({ facilityId = null, onSuccess }) {
           error={errors.facilityOwner}
         />
         <SelectField
-          label="Classification *"
-          name="facilityClassification"
-          value={form.facilityClassification}
-          onChange={handleChange}
-          options={classifications.map((classification) => ({
-            value: classification,
-            label: classification,
-          }))}
-          error={errors.facilityClassification}
-        />
-        <Field
-          label="Affiliation / Network"
+          label="Affiliated to *"
           name="facilityAffiliation"
           value={form.facilityAffiliation}
           onChange={handleChange}
+          options={affiliations.map((affiliation) => ({
+            value: affiliation,
+            label: affiliation,
+          }))}
+          error={errors.facilityAffiliation}
         />
         <Field
           label="Longitude *"

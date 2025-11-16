@@ -5,7 +5,7 @@ import { useAppwrite } from "../../hooks/useAppwrite.js";
 
 export default function FilterPanel() {
   const { filters, setFilters, resetFilters } = useFilters();
-  const { governorates, facilityTypes, owners, classifications, statuses } =
+  const { governorates, facilityTypes, owners, affiliations, statuses } =
     useAppwrite();
 
   const statsSummary = useMemo(
@@ -13,7 +13,7 @@ export default function FilterPanel() {
       status: filters.statuses.length,
       types: filters.facilityTypes.length,
       owners: filters.owners.length,
-      classifications: filters.classifications.length,
+      affiliations: filters.affiliations.length,
     }),
     [filters],
   );
@@ -104,13 +104,13 @@ export default function FilterPanel() {
       />
 
       <MultiSelectGroup
-        label="Classification"
-        options={classifications}
-        selected={filters.classifications}
-        onToggle={(value) => toggleValue("classifications", value)}
+        label="Affiliated to"
+        options={affiliations}
+        selected={filters.affiliations}
+        onToggle={(value) => toggleValue("affiliations", value)}
         badgeText={
-          statsSummary.classifications > 0
-            ? `${statsSummary.classifications} selected`
+          statsSummary.affiliations > 0
+            ? `${statsSummary.affiliations} selected`
             : "All"
         }
       />

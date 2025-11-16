@@ -2,12 +2,7 @@ import { ID, Query } from "appwrite";
 import { account, client, databases, functions } from "../lib/appwrite";
 import env, { isAppwriteConfigured } from "../utils/env";
 import sampleFacilities from "../data/sampleFacilities";
-import {
-  CLASSIFICATION_OPTIONS,
-  EDIT_STATUS_OPTIONS,
-  OWNER_OPTIONS,
-  TYPE_OPTIONS,
-} from "../utils/constants";
+import { EDIT_STATUS_OPTIONS } from "../utils/constants";
 
 const FALLBACK_GOVERNORATES = [
   ...new Set(sampleFacilities.map((facility) => facility.governorate)),
@@ -122,13 +117,106 @@ function normalizeNumber(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function mapFacilityDocument(document = {}) {
+  if (!document) {
+    return null;
+  }
+
+  const longitude = normalizeNumber(
+    document.longitude ??
+      document.X ??
+      document.Location?.coordinates?.[0] ??
+      document.location?.coordinates?.[0],
+  );
+  const latitude = normalizeNumber(
+    document.latitude ??
+      document.Y ??
+      document.Location?.coordinates?.[1] ??
+      document.location?.coordinates?.[1],
+  );
+
+  const location =
+    document.location ??
+    document.Location ??
+    (Number.isFinite(longitude) && Number.isFinite(latitude)
+      ? {
+          type: "Point",
+          coordinates: [longitude, latitude],
+        }
+      : undefined);
+
+  return {
+    ...document,
+    facilityName: document.facilityName ?? document.name ?? "",
+    establishmentName:
+      document.establishmentName ??
+      document.establishment_name ??
+      document.establishment ??
+      "",
+    governorate: document.governorate ?? "",
+    facilityStatus: document.facilityStatus ?? document.STATUS ?? "",
+    facilityTypeLabel: document.facilityTypeLabel ?? document.type ?? "",
+    facilityOwner: document.facilityOwner ?? document.Owner ?? "",
+    facilityAffiliation: document.facilityAffiliation ?? document.FOLLOWS ?? "",
+    longitude,
+    latitude,
+    location,
+    createdAt: document.createdAt ?? document.$createdAt ?? null,
+    updatedAt: document.updatedAt ?? document.$updatedAt ?? null,
+  };
+}
+
+function normalizeFacilities(documents = []) {
+  return documents.map((document) => mapFacilityDocument(document));
+}
+
+function normalizeGovernorates(documents = []) {
+  return documents.map((document) => ({
+    ...document,
+    name: document.name ?? document.NAME ?? document.governorate ?? "",
+    name_AR: document.name_AR ?? document.nameAr ?? document.name_ar ?? "",
+  }));
+}
+
+function mapFacilityFormToAppwrite(payload = {}) {
+  const longitude = normalizeNumber(payload.longitude);
+  const latitude = normalizeNumber(payload.latitude);
+  const location =
+    payload.location ??
+    (Number.isFinite(longitude) && Number.isFinite(latitude)
+      ? { type: "Point", coordinates: [longitude, latitude] }
+      : undefined);
+
+  const data = {
+    name: payload.facilityName ?? payload.name ?? "",
+    governorate: payload.governorate ?? "",
+    STATUS: payload.facilityStatus ?? "",
+    type: payload.facilityTypeLabel ?? "",
+    Owner: payload.facilityOwner ?? "",
+    FOLLOWS: payload.facilityAffiliation ?? "",
+    X: longitude ?? undefined,
+    Y: latitude ?? undefined,
+    Location: location,
+    lastEditedBy: payload.lastEditedBy,
+    createdBy: payload.createdBy,
+  };
+
+  Object.keys(data).forEach((key) => {
+    if (data[key] === undefined || data[key] === null) {
+      delete data[key];
+    }
+  });
+
+  return data;
+}
+
 function applyFiltersLocally(facilities, filters = {}) {
   const {
     governorate,
     statuses = [],
     facilityTypes = [],
     owners = [],
-    classifications = [],
+    affiliations = [],
     searchTerm = "",
   } = filters;
 
@@ -155,8 +243,8 @@ function applyFiltersLocally(facilities, filters = {}) {
     }
 
     if (
-      classifications.length > 0 &&
-      !classifications.includes(facility.facilityClassification)
+      affiliations.length > 0 &&
+      !affiliations.includes(facility.facilityAffiliation)
     ) {
       return false;
     }
@@ -180,31 +268,30 @@ function buildFilterQueries(filters = {}) {
     queries.push(Query.equal("governorate", filters.governorate));
   }
   if (filters.statuses?.length) {
-    queries.push(Query.equal("facilityStatus", filters.statuses));
+    queries.push(Query.equal("STATUS", filters.statuses));
   }
   if (filters.facilityTypes?.length) {
-    queries.push(Query.equal("facilityTypeLabel", filters.facilityTypes));
+    queries.push(Query.equal("type", filters.facilityTypes));
   }
   if (filters.owners?.length) {
-    queries.push(Query.equal("facilityOwner", filters.owners));
+    queries.push(Query.equal("Owner", filters.owners));
   }
-  if (filters.classifications?.length) {
-    queries.push(
-      Query.equal("facilityClassification", filters.classifications),
-    );
+  if (filters.affiliations?.length) {
+    queries.push(Query.equal("FOLLOWS", filters.affiliations));
   }
   if (filters.searchTerm?.trim()?.length > 1) {
     const term = filters.searchTerm.trim();
-    queries.push(Query.search("facilityName", term));
+    queries.push(Query.search("name", term));
   }
   return queries;
 }
 
 export async function listFacilities(filters = {}) {
   if (!isAppwriteConfigured) {
+    const filteredDocuments = applyFiltersLocally(sampleFacilities, filters);
     return {
-      total: sampleFacilities.length,
-      documents: applyFiltersLocally(sampleFacilities, filters),
+      total: filteredDocuments.length,
+      documents: normalizeFacilities(filteredDocuments),
       source: "mock",
     };
   }
@@ -218,6 +305,7 @@ export async function listFacilities(filters = {}) {
 
     return {
       ...response,
+      documents: normalizeFacilities(response.documents),
       source: "appwrite",
     };
   } catch (error) {
@@ -225,9 +313,10 @@ export async function listFacilities(filters = {}) {
       "[Facilities] Falling back to mock data because Appwrite request failed.",
       error,
     );
+    const filteredDocuments = applyFiltersLocally(sampleFacilities, filters);
     return {
-      total: sampleFacilities.length,
-      documents: applyFiltersLocally(sampleFacilities, filters),
+      total: filteredDocuments.length,
+      documents: normalizeFacilities(filteredDocuments),
       source: "mock",
       error,
     };
@@ -236,7 +325,7 @@ export async function listFacilities(filters = {}) {
 
 export async function listGovernorates() {
   if (!isAppwriteConfigured || !env.governoratesCollectionId) {
-    return FALLBACK_GOVERNORATES;
+    return normalizeGovernorates(FALLBACK_GOVERNORATES);
   }
 
   try {
@@ -245,13 +334,13 @@ export async function listGovernorates() {
       [Query.orderAsc("name")],
       { limit: 200 },
     );
-    return response.documents;
+    return normalizeGovernorates(response.documents);
   } catch (error) {
     console.warn(
       "[Governorates] Falling back to mock data because Appwrite request failed.",
       error,
     );
-    return FALLBACK_GOVERNORATES;
+    return normalizeGovernorates(FALLBACK_GOVERNORATES);
   }
 }
 
@@ -331,18 +420,20 @@ export async function saveFacility(formData, { facilityId, userId } = {}) {
     ...payload,
   });
 
+  const documentPayload = mapFacilityFormToAppwrite(payload);
+
   const document = facilityId
     ? await databases.updateDocument(
         env.databaseId,
         env.facilitiesCollectionId,
         facilityId,
-        payload,
+        documentPayload,
       )
     : await databases.createDocument(
         env.databaseId,
         env.facilitiesCollectionId,
         ID.unique(),
-        payload,
+        documentPayload,
       );
 
   await createEditLog({
@@ -353,7 +444,7 @@ export async function saveFacility(formData, { facilityId, userId } = {}) {
     status: "approved",
   });
 
-  return document;
+  return mapFacilityDocument(document);
 }
 
 export async function getFacilityById(facilityId) {
@@ -362,16 +453,19 @@ export async function getFacilityById(facilityId) {
   }
 
   if (!isAppwriteConfigured) {
-    return sampleFacilities.find((facility) => facility.$id === facilityId) ?? null;
+    const facility =
+      sampleFacilities.find((item) => item.$id === facilityId) ?? null;
+    return facility ? mapFacilityDocument(facility) : null;
   }
 
   try {
     await ensureAppwriteSession();
-    return await databases.getDocument(
+    const document = await databases.getDocument(
       env.databaseId,
       env.facilitiesCollectionId,
       facilityId,
     );
+    return mapFacilityDocument(document);
   } catch (error) {
     console.error(`[Facility] Unable to load facility ${facilityId}`, error);
     throw error;
@@ -451,15 +545,12 @@ export function deriveReferenceOptions(facilities = []) {
   return {
     facilityTypes: unique(
       facilities.map((facility) => facility.facilityTypeLabel),
-      TYPE_OPTIONS,
     ),
     owners: unique(
       facilities.map((facility) => facility.facilityOwner),
-      OWNER_OPTIONS,
     ),
-    classifications: unique(
-      facilities.map((facility) => facility.facilityClassification),
-      CLASSIFICATION_OPTIONS,
+    affiliations: unique(
+      facilities.map((facility) => facility.facilityAffiliation),
     ),
   };
 }

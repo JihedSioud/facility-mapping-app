@@ -67,7 +67,7 @@
     "tables": [
         {
             "$id": "facilities",
-             "$permissions": [
+            "$permissions": [
                 "read(\"any\")"
             ],
             "databaseId": "690f4998001bac0561d9",
@@ -94,7 +94,7 @@
                     "default": null
                 },
                 {
-                    "key": "NAME",
+                    "key": "name",
                     "type": "string",
                     "required": true,
                     "array": false,
@@ -103,7 +103,7 @@
                     "encrypt": false
                 },
                 {
-                    "key": "GOV",
+                    "key": "governorate",
                     "type": "string",
                     "required": false,
                     "array": false,
@@ -121,7 +121,7 @@
                     "encrypt": false
                 },
                 {
-                    "key": "S_TYPE",
+                    "key": "type",
                     "type": "string",
                     "required": true,
                     "array": false,
@@ -130,7 +130,7 @@
                     "encrypt": false
                 },
                 {
-                    "key": "OWNER",
+                    "key": "Owner",
                     "type": "string",
                     "required": false,
                     "array": false,
@@ -205,7 +205,7 @@
         },
         {
             "$id": "edits_log",
-             "$permissions": [
+            "$permissions": [
                 "read(\"any\")"
             ],
             "databaseId": "690f4998001bac0561d9",
@@ -270,7 +270,7 @@
         },
         {
             "$id": "governorates",
-             "$permissions": [
+            "$permissions": [
                 "read(\"any\")"
             ],
             "databaseId": "690f4998001bac0561d9",

@@ -7,7 +7,7 @@ export function useAppwrite() {
     governorates,
     facilityTypes: referenceOptions.facilityTypes ?? [],
     owners: referenceOptions.owners ?? [],
-    classifications: referenceOptions.classifications ?? [],
+    affiliations: referenceOptions.affiliations ?? [],
     statuses: STATUS_OPTIONS,
   };
 }
