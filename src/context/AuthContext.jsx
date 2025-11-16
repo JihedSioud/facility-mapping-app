@@ -84,9 +84,16 @@ export function AuthProvider({ children }) {
       setRole(resolveRoleFromMemberships(memberships));
       setError(null);
     } catch (err) {
-      setUser(null);
-      setRole("visitor");
-      setError(err);
+      // For unauthenticated visitors, silently treat as visitor instead of surfacing an error.
+      if (err?.code === 401 || err?.code === 403) {
+        setUser(null);
+        setRole("visitor");
+        setError(null);
+      } else {
+        setUser(null);
+        setRole("visitor");
+        setError(err);
+      }
     } finally {
       setLoading(false);
     }
@@ -123,7 +130,10 @@ export function AuthProvider({ children }) {
           await refreshUser();
           return;
         }
-        setError(err);
+        const message =
+          err?.message ??
+          "Invalid credentials. Please check the email and password.";
+        setError({ ...err, message });
         throw err;
       }
       await refreshUser();

@@ -32,10 +32,30 @@ const tooltipStyles = {
 };
 
 export default function Dashboard() {
-  const { stats, isFetching } = useFacilities();
+  const { stats, isFetching, governorates } = useFacilities();
+
+  const normalizeKey = (value) => (value ?? "").toString().trim().toLowerCase();
+  const governorateNameMap = new Map(
+    (governorates ?? []).flatMap((gov) => {
+      const nameEn = gov.name ?? "";
+      const nameAr = gov.name_AR ?? "";
+      return [
+        [normalizeKey(nameEn), nameEn || nameAr],
+        [normalizeKey(nameAr), nameEn || nameAr],
+      ];
+    }),
+  );
+  const formatGovernorateLabel = (key) =>
+    governorateNameMap.get(normalizeKey(key)) ?? key;
+  const shortLabel = (label) =>
+    label.length > 12 ? `${label.slice(0, 10)}…` : label;
 
   const governorateData = Object.entries(stats.byGovernorate ?? {}).map(
-    ([name, count]) => ({ name, count }),
+    ([name, count]) => ({
+      name: formatGovernorateLabel(name),
+      count,
+      raw: name,
+    }),
   );
   const typeData = Object.entries(stats.byType ?? {}).map(([name, count]) => ({
     name,
@@ -100,7 +120,19 @@ export default function Dashboard() {
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={governorateData}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" />
-              <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#94a3b8" }} stroke="#1f2937" />
+              <XAxis
+                dataKey="name"
+                tick={{
+                  fontSize: 11,
+                  fill: "#94a3b8",
+                  angle: -45,
+                  textAnchor: "end",
+                }}
+                height={60}
+                stroke="#1f2937"
+                tickFormatter={shortLabel}
+                interval={0}
+              />
               <YAxis allowDecimals={false} tick={{ fill: "#94a3b8" }} stroke="#1f2937" />
               <Tooltip contentStyle={tooltipStyles} itemStyle={{ color: "#e2e8f0" }} />
               <Bar dataKey="count" fill="#22d3ee" radius={[6, 6, 0, 0]} />
