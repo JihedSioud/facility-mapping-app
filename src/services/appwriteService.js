@@ -1,5 +1,5 @@
 import { ID, Query } from "appwrite";
-import { account, client, databases, functions } from "../lib/appwrite";
+import { account, client, databases, functions, teams } from "../lib/appwrite";
 import env, { isAppwriteConfigured } from "../utils/env";
 import sampleFacilities from "../data/sampleFacilities";
 import { EDIT_STATUS_OPTIONS } from "../utils/constants";
@@ -209,6 +209,22 @@ function normalizeGovernorates(documents = []) {
     name_AR: normalizeGovernorate(
       document.name_AR ?? document.nameAr ?? document.name_ar ?? "",
     ),
+    boundary: (() => {
+      const raw =
+        document.boundary ??
+        document.BOUNDARY ??
+        document.geometry ??
+        document.GEOMETRY ??
+        null;
+      if (typeof raw === "string") {
+        try {
+          return JSON.parse(raw);
+        } catch (error) {
+          return null;
+        }
+      }
+      return raw ?? null;
+    })(),
   }));
 }
 
@@ -583,6 +599,37 @@ export function subscribeToFacilityChanges(callback) {
       unsubscribe();
     }
   };
+}
+
+function resolveTeamId(teamKey) {
+  if (teamKey === "admin") {
+    return env.adminsTeamId ?? null;
+  }
+  if (teamKey === "editor") {
+    return env.editorsTeamId ?? null;
+  }
+  return null;
+}
+
+export async function inviteUserToTeam({ email, name = "", role = "member", team }) {
+  if (!isAppwriteConfigured) {
+    throw new Error("Appwrite is not configured.");
+  }
+  const teamId = resolveTeamId(team);
+  if (!teamId) {
+    throw new Error(
+      `Team id for "${team}" is not configured. Please set env variables for adminsTeamId/editorsTeamId.`,
+    );
+  }
+
+  // Appwrite requires a redirect URL for invitation confirmation. Use current origin as fallback.
+  const url =
+    env.inviteRedirectUrl ??
+    (typeof window !== "undefined"
+      ? `${window.location.origin}/`
+      : "https://appwrite.io");
+
+  return teams.createMembership(teamId, [role], email, url, name || email);
 }
 
 export function deriveReferenceOptions(facilities = []) {

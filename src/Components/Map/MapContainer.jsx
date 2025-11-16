@@ -9,6 +9,7 @@ import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import "leaflet.markercluster";
 import FacilityPopup from "./FacilityPopup.jsx";
 import { useFacilities } from "../../hooks/useFacilities.js";
+import { useFilters } from "../../hooks/useFilters.js";
 
 const TYPE_COLORS = {
   Hospital: "red",
@@ -87,10 +88,12 @@ L.Icon.Default.mergeOptions({
 });
 
 export default function MapComponent() {
-  const { facilities, isLoading } = useFacilities();
+  const { facilities, governorates, isLoading } = useFacilities();
+  const { filters } = useFilters();
   const [baseLayerKey, setBaseLayerKey] = useState("cartoDark");
   const [markerTheme, setMarkerTheme] = useState("byType");
   const mapRef = useRef(null);
+  const boundariesRef = useRef(null);
 
   const selectedBaseLayer =
     BASE_LAYERS.find((layer) => layer.id === baseLayerKey) ?? BASE_LAYERS[0];
@@ -112,6 +115,115 @@ export default function MapComponent() {
         .filter(Boolean),
     [facilities],
   );
+
+  const normalizeGovernorate = (value) =>
+    (value ?? "").toString().trim().toLowerCase();
+  const selectedGovernorate = normalizeGovernorate(filters?.governorate);
+
+  const boundariesData = useMemo(() => {
+    const features = (governorates ?? [])
+      .map((gov) => {
+        const geometry =
+          typeof gov.boundary === "string"
+            ? (() => {
+                try {
+                  return JSON.parse(gov.boundary);
+                } catch (error) {
+                  return null;
+                }
+              })()
+            : gov.boundary;
+        if (!geometry) {
+          return null;
+        }
+        const normalizedNames = [
+          gov.name,
+          gov.name_AR,
+          gov.governorate,
+        ]
+          .filter(Boolean)
+          .map((value) => normalizeGovernorate(value));
+
+        return {
+          type: "Feature",
+          geometry,
+          properties: {
+            name: gov.name,
+            name_AR: gov.name_AR,
+            governorate: gov.name,
+            normalizedNames,
+          },
+        };
+      })
+      .filter(Boolean);
+
+    if (!features.length) {
+      return null;
+    }
+
+    return {
+      type: "FeatureCollection",
+      features,
+    };
+  }, [governorates]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !boundariesData) {
+      return;
+    }
+
+    if (boundariesRef.current) {
+      map.removeLayer(boundariesRef.current);
+      boundariesRef.current = null;
+    }
+
+    const matchGovernorate = (feature) => {
+      const props = feature?.properties ?? {};
+      const candidates = [
+        ...(props.normalizedNames ?? []),
+        props.governorate,
+        props.GOVERNORATE,
+        props.NAME,
+        props.Name,
+        props.name,
+        props.NAME_EN,
+        props.NAME_ENGLISH,
+        props.name_en,
+        props.NAME_AR,
+        props.name_ar,
+      ]
+        .filter(Boolean)
+        .map((value) => normalizeGovernorate(value));
+
+      if (!selectedGovernorate.length) {
+        return true;
+      }
+      return candidates.includes(selectedGovernorate);
+    };
+
+    const layer = L.geoJSON(boundariesData, {
+      style: (feature) => {
+        const isMatch = matchGovernorate(feature);
+        return {
+          color: isMatch ? "#22d3ee" : "#22d3ee33",
+          weight: isMatch ? 2 : 0.5,
+          fillColor: "#22d3ee",
+          fillOpacity: isMatch ? 0.08 : 0,
+        };
+      },
+    });
+
+    layer.addTo(map);
+    boundariesRef.current = layer;
+
+    return () => {
+      if (boundariesRef.current) {
+        map.removeLayer(boundariesRef.current);
+        boundariesRef.current = null;
+      }
+    };
+  }, [boundariesData, selectedGovernorate]);
 
   const handleResetView = () => {
     const map = mapRef.current;

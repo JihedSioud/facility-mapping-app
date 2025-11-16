@@ -1,24 +1,32 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import PropTypes from "prop-types";
 import { ID } from "appwrite";
-import { account } from "../lib/appwrite";
+import { account, teams } from "../lib/appwrite";
 import env from "../utils/env";
 import { AuthContext } from "./baseContexts.js";
 
 function resolveRoleFromMemberships(memberships = []) {
   const membershipIds = memberships.map((membership) => membership.teamId);
+  const hasAdminRole = memberships.some((membership) =>
+    (membership.roles ?? []).some((role) =>
+      ["owner", "admin", "administrator"].includes(role.toLowerCase()),
+    ),
+  );
+
   if (
-    env.adminsTeamId &&
-    membershipIds.includes(env.adminsTeamId)
+    (env.adminsTeamId && membershipIds.includes(env.adminsTeamId)) ||
+    hasAdminRole
   ) {
     return "admin";
   }
+
   if (
     env.editorsTeamId &&
     membershipIds.includes(env.editorsTeamId)
   ) {
     return "editor";
   }
+
   return membershipIds.length > 0 ? "editor" : "visitor";
 }
 
@@ -30,7 +38,7 @@ export function AuthProvider({ children }) {
 
   const clearExistingSessions = useCallback(async () => {
     try {
-      await account.deleteSession("current");
+      await account.deleteSessions();
     } catch (err) {
       // ignore if no session is active
     }
@@ -40,10 +48,40 @@ export function AuthProvider({ children }) {
     try {
       setLoading(true);
       const accountProfile = await account.get();
-      const membershipResponse = await account.listMemberships();
+      const memberships = [];
+
+      const addMemberships = (response = {}) => {
+        (response.memberships ?? [])
+          .filter(
+            (membership) => membership.userId === accountProfile.$id,
+          )
+          .forEach((membership) => memberships.push(membership));
+      };
+
+      if (env.adminsTeamId) {
+        try {
+          const adminMemberships = await teams.listMemberships(
+            env.adminsTeamId,
+          );
+          addMemberships(adminMemberships);
+        } catch (err) {
+          console.warn("Unable to load admin team memberships", err);
+        }
+      }
+
+      if (env.editorsTeamId) {
+        try {
+          const editorMemberships = await teams.listMemberships(
+            env.editorsTeamId,
+          );
+          addMemberships(editorMemberships);
+        } catch (err) {
+          console.warn("Unable to load editor team memberships", err);
+        }
+      }
 
       setUser(accountProfile);
-      setRole(resolveRoleFromMemberships(membershipResponse.memberships ?? []));
+      setRole(resolveRoleFromMemberships(memberships));
       setError(null);
     } catch (err) {
       setUser(null);
@@ -60,8 +98,34 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(
     async ({ email, password }) => {
+      setError(null);
+      try {
+        // If already authenticated, just refresh.
+        const current = await account.get();
+        if (current?.$id) {
+          await refreshUser();
+          return;
+        }
+      } catch (err) {
+        // proceed to create session
+      }
+
       await clearExistingSessions();
-      await account.createEmailPasswordSession(email, password);
+      try {
+        await account.createEmailPasswordSession(email, password);
+      } catch (err) {
+        // If a session already exists, refresh the user and continue.
+        if (
+          err?.code === 409 ||
+          (typeof err?.message === "string" &&
+            err.message.toLowerCase().includes("session is active"))
+        ) {
+          await refreshUser();
+          return;
+        }
+        setError(err);
+        throw err;
+      }
       await refreshUser();
     },
     [clearExistingSessions, refreshUser],
@@ -69,6 +133,7 @@ export function AuthProvider({ children }) {
 
   const register = useCallback(
     async ({ email, password, name }) => {
+      setError(null);
       await account.create(ID.unique(), email, password, name);
       await clearExistingSessions();
       await account.createEmailPasswordSession(email, password);
@@ -85,6 +150,7 @@ export function AuthProvider({ children }) {
     }
     setUser(null);
     setRole("visitor");
+    setError(null);
   }, []);
 
   const value = useMemo(
@@ -97,6 +163,7 @@ export function AuthProvider({ children }) {
       register,
       logout,
       refreshUser,
+      isAuthenticated: Boolean(user),
       isEditor: role === "editor" || role === "admin",
       isAdmin: role === "admin",
     }),

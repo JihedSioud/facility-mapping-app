@@ -1,12 +1,16 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../../hooks/useAuth.js";
 
 export default function AuthPanel() {
-  const { login, register, loading } = useAuth();
+  const { login, register, loading, error: authError } = useAuth();
   const [mode, setMode] = useState("login");
   const [form, setForm] = useState({ email: "", password: "", name: "" });
   const [error, setError] = useState(null);
   const isLogin = mode === "login";
+
+  useEffect(() => {
+    setError(authError?.message ?? null);
+  }, [authError]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -31,23 +35,23 @@ export default function AuthPanel() {
   };
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-lg">
+    <div className="rounded-2xl border border-white/10 bg-slate-900/95 p-4 text-sm text-white shadow-2xl shadow-cyan-500/20">
       <div className="mb-3 flex items-center justify-between">
-        <p className="text-sm font-semibold text-slate-900">
+        <p className="text-sm font-semibold text-white">
           {isLogin ? "Sign in" : "Create account"}
         </p>
         <button
           type="button"
           onClick={() => setMode(isLogin ? "register" : "login")}
-          className="text-xs font-semibold uppercase tracking-wide text-emerald-600"
+          className="text-[11px] font-semibold uppercase tracking-wide text-cyan-300"
         >
           {isLogin ? "Need access?" : "Have an account?"}
         </button>
       </div>
       <form onSubmit={handleSubmit} className="space-y-3 text-sm">
         {!isLogin && (
-          <label className="block text-slate-700">
-            <span className="mb-1 block text-xs uppercase tracking-wide text-slate-500">
+          <label className="block text-slate-100">
+            <span className="mb-1 block text-[11px] uppercase tracking-wide text-slate-400">
               Full name
             </span>
             <input
@@ -59,13 +63,13 @@ export default function AuthPanel() {
                   name: event.target.value,
                 }))
               }
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 focus:border-emerald-500 focus:outline-none"
+              className="w-full rounded-xl border border-white/10 bg-slate-800/60 px-3 py-2 text-white placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none"
               required
             />
           </label>
         )}
-        <label className="block text-slate-700">
-          <span className="mb-1 block text-xs uppercase tracking-wide text-slate-500">
+        <label className="block text-slate-100">
+          <span className="mb-1 block text-[11px] uppercase tracking-wide text-slate-400">
             Email
           </span>
           <input
@@ -77,12 +81,12 @@ export default function AuthPanel() {
                 email: event.target.value,
               }))
             }
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 focus:border-emerald-500 focus:outline-none"
+            className="w-full rounded-xl border border-white/10 bg-slate-800/60 px-3 py-2 text-white placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none"
             required
           />
         </label>
-        <label className="block text-slate-700">
-          <span className="mb-1 block text-xs uppercase tracking-wide text-slate-500">
+        <label className="block text-slate-100">
+          <span className="mb-1 block text-[11px] uppercase tracking-wide text-slate-400">
             Password
           </span>
           <input
@@ -94,16 +98,20 @@ export default function AuthPanel() {
                 password: event.target.value,
               }))
             }
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 focus:border-emerald-500 focus:outline-none"
+            className="w-full rounded-xl border border-white/10 bg-slate-800/60 px-3 py-2 text-white placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none"
             required
             minLength={8}
           />
         </label>
-        {error && <p className="text-xs text-rose-600">{error}</p>}
+        {error && (
+          <p className="text-xs text-rose-400">
+            {error}
+          </p>
+        )}
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-xl bg-emerald-600 px-3 py-2 font-semibold text-white transition hover:bg-emerald-700 disabled:bg-slate-400"
+          className="w-full rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 px-3 py-2 font-semibold text-white transition hover:brightness-110 disabled:bg-slate-500"
         >
           {loading ? "Please wait…" : isLogin ? "Sign in" : "Create account"}
         </button>
