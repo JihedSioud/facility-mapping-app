@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import PropTypes from "prop-types";
 import { MapContainer as LeafletMap, TileLayer, useMap } from "react-leaflet";
 import L from "leaflet";
@@ -18,6 +18,44 @@ const TYPE_COLORS = {
   "Specialized Center": "purple",
 };
 
+const BASE_LAYERS = [
+  {
+    id: "cartoDark",
+    name: "Carto Dark",
+    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    subdomains: "abcd",
+    maxZoom: 20,
+  },
+  {
+    id: "cartoLight",
+    name: "Carto Light",
+    url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    subdomains: "abcd",
+    maxZoom: 20,
+  },
+  {
+    id: "osm",
+    name: "OSM Standard",
+    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    subdomains: ["a", "b", "c"],
+    maxZoom: 19,
+  },
+  {
+    id: "satellite",
+    name: "Esri Satellite",
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    attribution:
+      "Tiles &copy; Esri, Maxar, Earthstar Geographics, and the GIS User Community",
+    maxZoom: 19,
+  },
+];
+
 const DEFAULT_ICON = L.icon({
   iconUrl:
     "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon.png",
@@ -26,8 +64,9 @@ const DEFAULT_ICON = L.icon({
   popupAnchor: [0, -28],
 });
 
-function getIconByType(type) {
-  const color = TYPE_COLORS[type] ?? "grey";
+function getIconByType(type, markerTheme = "byType") {
+  const color =
+    markerTheme === "single" ? "teal" : TYPE_COLORS[type] ?? "grey";
   return L.icon({
     iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`,
     iconRetinaUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`,
@@ -49,6 +88,12 @@ L.Icon.Default.mergeOptions({
 
 export default function MapComponent() {
   const { facilities, isLoading } = useFacilities();
+  const [baseLayerKey, setBaseLayerKey] = useState("cartoDark");
+  const [markerTheme, setMarkerTheme] = useState("byType");
+  const mapRef = useRef(null);
+
+  const selectedBaseLayer =
+    BASE_LAYERS.find((layer) => layer.id === baseLayerKey) ?? BASE_LAYERS[0];
 
   const markers = useMemo(
     () =>
@@ -68,6 +113,29 @@ export default function MapComponent() {
     [facilities],
   );
 
+  const handleResetView = () => {
+    const map = mapRef.current;
+    if (!map) return;
+    map.closePopup();
+    map.setView([34.8021, 38.9968], 6);
+  };
+
+  const handleFitToFacilities = () => {
+    const map = mapRef.current;
+    if (!map || markers.length === 0) {
+      return;
+    }
+    const bounds = L.latLngBounds(markers.map((marker) => marker.position));
+    map.closePopup();
+    map.fitBounds(bounds, { padding: [40, 40] });
+  };
+
+  const handleToggleTheme = () => {
+    setBaseLayerKey((current) =>
+      current === "cartoDark" ? "cartoLight" : "cartoDark",
+    );
+  };
+
   return (
     <div className="relative h-[520px] w-full overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900/80 to-slate-950/80 shadow-2xl shadow-cyan-500/20">
       {isLoading && (
@@ -77,25 +145,41 @@ export default function MapComponent() {
       )}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/5 via-transparent to-transparent mix-blend-overlay" />
 
+      <MapControls
+        baseLayerKey={baseLayerKey}
+        onBaseLayerChange={setBaseLayerKey}
+        markerTheme={markerTheme}
+        onMarkerThemeChange={setMarkerTheme}
+        onToggleTheme={handleToggleTheme}
+        onResetView={handleResetView}
+        onFitToFacilities={handleFitToFacilities}
+      />
+
       <LeafletMap
         center={[34.8021, 38.9968]}
         zoom={6}
         minZoom={4}
+        ref={mapRef}
+        whenCreated={(mapInstance) => {
+          mapRef.current = mapInstance;
+        }}
         style={{ height: "100%", width: "100%" }}
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          subdomains="abcd"
-          maxZoom={19}
+          key={selectedBaseLayer.id}
+          attribution={selectedBaseLayer.attribution}
+          url={selectedBaseLayer.url}
+          subdomains={selectedBaseLayer.subdomains}
+          maxZoom={selectedBaseLayer.maxZoom ?? 19}
+          detectRetina
         />
-        <ClusteredMarkers markers={markers} />
+        <ClusteredMarkers markers={markers} markerTheme={markerTheme} />
       </LeafletMap>
     </div>
   );
 }
 
-function ClusteredMarkers({ markers }) {
+function ClusteredMarkers({ markers, markerTheme }) {
   const map = useMap();
 
   useEffect(() => {
@@ -106,7 +190,8 @@ function ClusteredMarkers({ markers }) {
 
     markers.forEach((facility) => {
       const marker = L.marker(facility.position, {
-        icon: getIconByType(facility.facilityTypeLabel) ?? DEFAULT_ICON,
+        icon:
+          getIconByType(facility.facilityTypeLabel, markerTheme) ?? DEFAULT_ICON,
       });
       marker.bindPopup(renderToString(<FacilityPopup facility={facility} />));
       clusterGroup.addLayer(marker);
@@ -118,7 +203,7 @@ function ClusteredMarkers({ markers }) {
       map.removeLayer(clusterGroup);
       clusterGroup.clearLayers();
     };
-  }, [map, markers]);
+  }, [map, markers, markerTheme]);
 
   return null;
 }
@@ -131,4 +216,86 @@ ClusteredMarkers.propTypes = {
       facilityTypeLabel: PropTypes.string,
     }),
   ).isRequired,
+  markerTheme: PropTypes.oneOf(["byType", "single"]).isRequired,
+};
+
+function MapControls({
+  baseLayerKey,
+  onBaseLayerChange,
+  markerTheme,
+  onMarkerThemeChange,
+  onToggleTheme,
+  onResetView,
+  onFitToFacilities,
+}) {
+  return (
+    <div className="absolute right-4 top-4 z-[1100] flex w-64 flex-col gap-3 rounded-2xl bg-slate-900/80 p-4 text-white shadow-xl shadow-cyan-500/20 backdrop-blur">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-200">
+          Map Controls
+        </h3>
+        <button
+          type="button"
+          onClick={onToggleTheme}
+          className="rounded-full border border-white/20 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide hover:border-cyan-400 hover:text-cyan-200"
+        >
+          {baseLayerKey === "cartoDark" ? "Light" : "Dark"}
+        </button>
+      </div>
+
+      <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+        Base layer
+        <select
+          className="mt-1 w-full rounded-lg border border-white/10 bg-slate-800/80 px-3 py-2 text-sm text-white focus:border-cyan-400 focus:outline-none"
+          value={baseLayerKey}
+          onChange={(event) => onBaseLayerChange(event.target.value)}
+        >
+          {BASE_LAYERS.map((layer) => (
+            <option key={layer.id} value={layer.id}>
+              {layer.name}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+        Marker style
+        <select
+          className="mt-1 w-full rounded-lg border border-white/10 bg-slate-800/80 px-3 py-2 text-sm text-white focus:border-cyan-400 focus:outline-none"
+          value={markerTheme}
+          onChange={(event) => onMarkerThemeChange(event.target.value)}
+        >
+          <option value="byType">Color by type</option>
+          <option value="single">Single color</option>
+        </select>
+      </label>
+
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={onResetView}
+          className="rounded-xl border border-white/10 bg-slate-800/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide hover:border-cyan-400 hover:text-cyan-200"
+        >
+          Reset view
+        </button>
+        <button
+          type="button"
+          onClick={onFitToFacilities}
+          className="rounded-xl border border-white/10 bg-slate-800/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide hover:border-cyan-400 hover:text-cyan-200"
+        >
+          Fit to data
+        </button>
+      </div>
+    </div>
+  );
+}
+
+MapControls.propTypes = {
+  baseLayerKey: PropTypes.string.isRequired,
+  onBaseLayerChange: PropTypes.func.isRequired,
+  markerTheme: PropTypes.oneOf(["byType", "single"]).isRequired,
+  onMarkerThemeChange: PropTypes.func.isRequired,
+  onToggleTheme: PropTypes.func.isRequired,
+  onResetView: PropTypes.func.isRequired,
+  onFitToFacilities: PropTypes.func.isRequired,
 };

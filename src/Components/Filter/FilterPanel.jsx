@@ -2,11 +2,16 @@ import { useMemo } from "react";
 import PropTypes from "prop-types";
 import { useFilters } from "../../hooks/useFilters.js";
 import { useAppwrite } from "../../hooks/useAppwrite.js";
+import { translateStatuses } from "../../utils/statusTranslations.js";
 
 export default function FilterPanel() {
   const { filters, setFilters, resetFilters } = useFilters();
   const { governorates, facilityTypes, owners, affiliations, statuses } =
     useAppwrite();
+  const statusOptions = useMemo(
+    () => translateStatuses(statuses),
+    [statuses],
+  );
 
   const statsSummary = useMemo(
     () => ({
@@ -63,19 +68,22 @@ export default function FilterPanel() {
             setFilters({ ...filters, governorate: event.target.value })
           }
           className="w-full rounded-2xl border border-white/10 bg-slate-900/60 px-4 py-2 text-sm text-white focus:border-cyan-400 focus:outline-none"
-        >
-          <option value="">All governorates</option>
-          {governorates.map((governorate) => (
-            <option key={governorate.$id} value={governorate.name}>
-              {governorate.name}
-            </option>
-          ))}
-        </select>
-      </div>
+          >
+            <option value="">All governorates</option>
+            {governorates.map((governorate) => (
+              <option
+                key={governorate.$id}
+                value={governorate.name_AR ?? governorate.name}
+              >
+                {governorate.name ?? governorate.name_AR}
+              </option>
+            ))}
+          </select>
+        </div>
 
       <MultiSelectGroup
         label="Status"
-        options={statuses}
+        options={statusOptions}
         selected={filters.statuses}
         onToggle={(value) => toggleValue("statuses", value)}
         badgeText={
@@ -145,19 +153,22 @@ function MultiSelectGroup({
       </div>
       <div className="flex flex-wrap gap-2">
         {options.map((option) => {
-          const active = selected.includes(option);
+          const value = typeof option === "string" ? option : option.value;
+          const display =
+            typeof option === "string" ? option : option.label ?? option.value;
+          const active = selected.includes(value);
           return (
             <button
-              key={option}
+              key={value}
               type="button"
-              onClick={() => onToggle(option)}
+              onClick={() => onToggle(value)}
               className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
                 active
                   ? "border-transparent bg-gradient-to-r from-cyan-500 to-indigo-500 text-white shadow shadow-cyan-500/30"
                   : "border-white/15 text-slate-300 hover:border-cyan-400/60 hover:text-white"
               }`}
             >
-              {option}
+              {display}
             </button>
           );
         })}
@@ -168,7 +179,15 @@ function MultiSelectGroup({
 
 MultiSelectGroup.propTypes = {
   label: PropTypes.string.isRequired,
-  options: PropTypes.arrayOf(PropTypes.string).isRequired,
+  options: PropTypes.arrayOf(
+    PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.shape({
+        value: PropTypes.string.isRequired,
+        label: PropTypes.string,
+      }),
+    ]),
+  ).isRequired,
   selected: PropTypes.arrayOf(PropTypes.string).isRequired,
   onToggle: PropTypes.func.isRequired,
   badgeText: PropTypes.string,

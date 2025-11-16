@@ -117,6 +117,29 @@ function normalizeNumber(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+const STATUS_REPLACEMENTS = new Set([
+  "تعمل ولكن لا يمكن الوصول اليه بسبب الوضع الأمني",
+  "تعمل ولكن لا يمكن الوصول اليه لسبب أخر (يرجى التحديد)",
+]);
+
+function normalizeGovernorate(value) {
+  if (typeof value !== "string") {
+    return value ?? "";
+  }
+  return value.trim();
+}
+
+function normalizeStatus(value) {
+  if (typeof value !== "string") {
+    return value ?? "";
+  }
+  const trimmed = value.trim();
+  if (STATUS_REPLACEMENTS.has(trimmed)) {
+    return "تعمل";
+  }
+  return trimmed;
+}
+
 function mapFacilityDocument(document = {}) {
   if (!document) {
     return null;
@@ -145,6 +168,13 @@ function mapFacilityDocument(document = {}) {
         }
       : undefined);
 
+  const facilityStatus = normalizeStatus(
+    document.facilityStatus ?? document.STATUS ?? "",
+  );
+  const governorate = normalizeGovernorate(
+    document.governorate ?? document.Governorate ?? "",
+  );
+
   return {
     ...document,
     facilityName: document.facilityName ?? document.name ?? "",
@@ -153,8 +183,8 @@ function mapFacilityDocument(document = {}) {
       document.establishment_name ??
       document.establishment ??
       "",
-    governorate: document.governorate ?? "",
-    facilityStatus: document.facilityStatus ?? document.STATUS ?? "",
+    governorate,
+    facilityStatus,
     facilityTypeLabel: document.facilityTypeLabel ?? document.type ?? "",
     facilityOwner: document.facilityOwner ?? document.Owner ?? "",
     facilityAffiliation: document.facilityAffiliation ?? document.FOLLOWS ?? "",
@@ -173,14 +203,19 @@ function normalizeFacilities(documents = []) {
 function normalizeGovernorates(documents = []) {
   return documents.map((document) => ({
     ...document,
-    name: document.name ?? document.NAME ?? document.governorate ?? "",
-    name_AR: document.name_AR ?? document.nameAr ?? document.name_ar ?? "",
+    name: normalizeGovernorate(
+      document.name ?? document.NAME ?? document.governorate ?? "",
+    ),
+    name_AR: normalizeGovernorate(
+      document.name_AR ?? document.nameAr ?? document.name_ar ?? "",
+    ),
   }));
 }
 
 function mapFacilityFormToAppwrite(payload = {}) {
   const longitude = normalizeNumber(payload.longitude);
   const latitude = normalizeNumber(payload.latitude);
+  const governorate = normalizeGovernorate(payload.governorate ?? "");
   const location =
     payload.location ??
     (Number.isFinite(longitude) && Number.isFinite(latitude)
@@ -189,8 +224,9 @@ function mapFacilityFormToAppwrite(payload = {}) {
 
   const data = {
     name: payload.facilityName ?? payload.name ?? "",
-    governorate: payload.governorate ?? "",
-    STATUS: payload.facilityStatus ?? "",
+    governorate,
+    Governorate: governorate,
+    STATUS: normalizeStatus(payload.facilityStatus ?? ""),
     type: payload.facilityTypeLabel ?? "",
     Owner: payload.facilityOwner ?? "",
     FOLLOWS: payload.facilityAffiliation ?? "",
@@ -221,13 +257,21 @@ function applyFiltersLocally(facilities, filters = {}) {
   } = filters;
 
   const loweredSearch = searchTerm.trim().toLowerCase();
+  const normalizedGovernorate = normalizeGovernorate(governorate);
 
   return facilities.filter((facility) => {
-    if (governorate && facility.governorate !== governorate) {
+    const normalizedStatus = normalizeStatus(
+      facility.facilityStatus ?? facility.STATUS ?? "",
+    );
+
+    if (
+      normalizedGovernorate &&
+      normalizeGovernorate(facility.governorate) !== normalizedGovernorate
+    ) {
       return false;
     }
 
-    if (statuses.length > 0 && !statuses.includes(facility.facilityStatus)) {
+    if (statuses.length > 0 && !statuses.includes(normalizedStatus)) {
       return false;
     }
 
@@ -265,10 +309,20 @@ function applyFiltersLocally(facilities, filters = {}) {
 function buildFilterQueries(filters = {}) {
   const queries = [];
   if (filters.governorate) {
-    queries.push(Query.equal("governorate", filters.governorate));
+    const normalizedGovernorate = normalizeGovernorate(filters.governorate);
+    queries.push(Query.equal("governorate", normalizedGovernorate));
   }
   if (filters.statuses?.length) {
-    queries.push(Query.equal("STATUS", filters.statuses));
+    const normalizedStatuses = filters.statuses.map((status) =>
+      normalizeStatus(status),
+    );
+    const queryStatuses = new Set(normalizedStatuses);
+    normalizedStatuses.forEach((status) => {
+      if (status === "تعمل") {
+        STATUS_REPLACEMENTS.forEach((original) => queryStatuses.add(original));
+      }
+    });
+    queries.push(Query.equal("STATUS", Array.from(queryStatuses)));
   }
   if (filters.facilityTypes?.length) {
     queries.push(Query.equal("type", filters.facilityTypes));
@@ -552,5 +606,6 @@ export function deriveReferenceOptions(facilities = []) {
     affiliations: unique(
       facilities.map((facility) => facility.facilityAffiliation),
     ),
+    statuses: unique(facilities.map((facility) => facility.facilityStatus)),
   };
 }

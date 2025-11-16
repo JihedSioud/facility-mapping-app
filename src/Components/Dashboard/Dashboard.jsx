@@ -14,6 +14,7 @@ import {
   Cell,
 } from "recharts";
 import { useFacilities } from "../../hooks/useFacilities.js";
+import { translateStatus } from "../../utils/statusTranslations.js";
 
 const CHART_COLORS = [
   "#22d3ee",
@@ -42,6 +43,12 @@ export default function Dashboard() {
   const statusData = Object.entries(stats.byStatus ?? {}).map(
     ([name, count]) => ({ name, value: count }),
   );
+  const ownershipData = Object.entries(stats.byOwnerCategory ?? {}).map(
+    ([name, count]) => ({
+      name,
+      value: count,
+    }),
+  );
 
   return (
     <section className="space-y-6 rounded-3xl border border-white/10 bg-slate-900/80 p-6 shadow-2xl shadow-cyan-500/10 backdrop-blur">
@@ -64,12 +71,16 @@ export default function Dashboard() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Total facilities" value={stats.total} />
         <StatCard
-          label="Active facilities"
-          value={stats.byStatus?.active ?? 0}
+          label="Operational facilities"
+          value={stats.operational ?? 0}
         />
         <StatCard
-          label="Inactive facilities"
-          value={stats.byStatus?.inactive ?? 0}
+          label="Partially operational"
+          value={stats.partiallyOperational ?? 0}
+        />
+        <StatCard
+          label="Not operational"
+          value={stats.notOperational ?? 0}
         />
         <StatCard
           label="Governorates covered"
@@ -122,8 +133,37 @@ export default function Dashboard() {
                 innerRadius={40}
                 outerRadius={90}
                 paddingAngle={3}
+                label={({ name, value }) =>
+                  `${translateStatus(name)}: ${value}`
+                }
+                labelStyle={{ fill: "#e2e8f0", fontSize: 12 }}
               >
                 {statusData.map((entry, index) => (
+                  <Cell
+                    key={entry.name}
+                    fill={CHART_COLORS[index % CHART_COLORS.length]}
+                  />
+                ))}
+              </Pie>
+              <Tooltip contentStyle={tooltipStyles} itemStyle={{ color: "#e2e8f0" }} />
+            </PieChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <ChartCard title="Facilities by ownership (equity view)">
+          <ResponsiveContainer width="100%" height={280}>
+            <PieChart>
+              <Pie
+                data={ownershipData}
+                dataKey="value"
+                nameKey="name"
+                innerRadius={40}
+                outerRadius={90}
+                paddingAngle={3}
+                label={({ name, value }) => `${name}: ${value}`}
+                labelStyle={{ fill: "#e2e8f0", fontSize: 12 }}
+              >
+                {ownershipData.map((entry, index) => (
                   <Cell
                     key={entry.name}
                     fill={CHART_COLORS[index % CHART_COLORS.length]}

@@ -28,6 +28,14 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const clearExistingSessions = useCallback(async () => {
+    try {
+      await account.deleteSession("current");
+    } catch (err) {
+      // ignore if no session is active
+    }
+  }, []);
+
   const refreshUser = useCallback(async () => {
     try {
       setLoading(true);
@@ -52,19 +60,21 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(
     async ({ email, password }) => {
+      await clearExistingSessions();
       await account.createEmailPasswordSession(email, password);
       await refreshUser();
     },
-    [refreshUser],
+    [clearExistingSessions, refreshUser],
   );
 
   const register = useCallback(
     async ({ email, password, name }) => {
       await account.create(ID.unique(), email, password, name);
+      await clearExistingSessions();
       await account.createEmailPasswordSession(email, password);
       await refreshUser();
     },
-    [refreshUser],
+    [clearExistingSessions, refreshUser],
   );
 
   const logout = useCallback(async () => {

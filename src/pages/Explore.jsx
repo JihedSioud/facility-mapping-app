@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import FilterPanel from "../Components/Filter/FilterPanel.jsx";
 import MapComponent from "../Components/Map/MapContainer.jsx";
 import Dashboard from "../Components/Dashboard/Dashboard.jsx";
@@ -5,23 +6,22 @@ import RecentActivity from "../Components/Activity/RecentActivity.jsx";
 import { useFacilities } from "../hooks/useFacilities.js";
 
 export default function ExplorePage() {
-  const { stats, source } = useFacilities();
+  const { stats, overallStats, source } = useFacilities();
 
-  const highlights = [
-    { label: "Facilities", value: stats.total ?? 0 },
-    {
-      label: "Active",
-      value: stats.byStatus?.active ?? 0,
-    },
-    {
-      label: "Governorates",
-      value: Object.keys(stats.byGovernorate ?? {}).length,
-    },
-    {
-      label: "Data source",
-      value: source === "appwrite" ? "Live" : "Preview",
-    },
-  ];
+  const highlights = useMemo(
+    () => [
+      { label: "Facilities", value: overallStats.total ?? 0 },
+      {
+        label: "Governorates",
+        value: Object.keys(overallStats.byGovernorate ?? {}).length,
+      },
+      {
+        label: "Data source",
+        value: source === "appwrite" ? "Live" : "Preview",
+      },
+    ],
+    [overallStats, source],
+  );
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-4 py-10">

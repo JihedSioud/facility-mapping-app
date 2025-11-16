@@ -7,6 +7,7 @@ import {
   getFacilityById,
   saveFacility,
 } from "../../services/appwriteService.js";
+import { translateStatuses } from "../../utils/statusTranslations.js";
 
 const EMPTY_FORM = {
   facilityName: "",
@@ -168,8 +169,8 @@ export default function FacilityForm({ facilityId = null, onSuccess }) {
           value={form.governorate}
           onChange={handleChange}
           options={governorates.map((governorate) => ({
-            value: governorate.name,
-            label: governorate.name,
+            value: governorate.name_AR ?? governorate.name,
+            label: governorate.name ?? governorate.name_AR,
           }))}
           error={errors.governorate}
         />
@@ -178,10 +179,7 @@ export default function FacilityForm({ facilityId = null, onSuccess }) {
           name="facilityStatus"
           value={form.facilityStatus}
           onChange={handleChange}
-          options={statuses.map((status) => ({
-            value: status,
-            label: status,
-          }))}
+          options={translateStatuses(statuses)}
           error={errors.facilityStatus}
         />
         <SelectField
