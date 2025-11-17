@@ -6,6 +6,7 @@ import {
   inviteUserToTeam,
 } from "../services/appwriteService.js";
 import { useAuth } from "../hooks/useAuth.js";
+import { useLanguage } from "../context/LanguageContext.jsx";
 
 export default function AdminPanel() {
   const queryClient = useQueryClient();
@@ -16,6 +17,7 @@ export default function AdminPanel() {
     team: "editor",
   });
   const { role } = useAuth();
+  const { t, direction } = useLanguage();
   const { data: pendingEdits = [], isLoading } = useQuery({
     queryKey: ["edits", "pending"],
     queryFn: () => listEdits({ status: "pending", limit: 50 }),
@@ -63,16 +65,23 @@ export default function AdminPanel() {
   const canManageRoles = role === "admin";
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 px-4 py-6">
+    <div
+      className={`mx-auto max-w-6xl space-y-6 px-4 py-6 ${
+        direction === "rtl" ? "text-right" : ""
+      }`}
+    >
       <header className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <p className="text-xs uppercase tracking-wider text-slate-400">
-          Admin
+          {t("admin", "Admin")}
         </p>
         <h1 className="text-2xl font-semibold text-slate-900">
-          Approval queue
+          {t("adminHeader", "Approval queue")}
         </h1>
         <p className="text-sm text-slate-500">
-          Review pending facility submissions before they go live.
+          {t(
+            "adminSubheader",
+            "Review pending facility submissions before they go live.",
+          )}
         </p>
       </header>
 
@@ -92,19 +101,22 @@ export default function AdminPanel() {
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-slate-900">
-              Role approvals
+              {t("roleApprovals", "Role approvals")}
             </h2>
             <p className="text-xs uppercase tracking-wide text-emerald-600">
-              Invite to Admin / Editor teams
+              {t("inviteTeams", "Invite to Admin / Editor teams")}
             </p>
           </div>
           <p className="mt-1 text-sm text-slate-500">
-            Approve access requests by inviting a user to the appropriate team.
+            {t(
+              "inviteHelp",
+              "Approve access requests by inviting a user to the appropriate team.",
+            )}
           </p>
           <form className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" onSubmit={handleInvite}>
             <label className="text-sm text-slate-700 sm:col-span-2">
               <span className="mb-1 block text-xs uppercase tracking-wide text-slate-500">
-                User email
+                {t("userEmail", "User email")}
               </span>
               <input
                 type="email"
@@ -121,7 +133,7 @@ export default function AdminPanel() {
             </label>
             <label className="text-sm text-slate-700">
               <span className="mb-1 block text-xs uppercase tracking-wide text-slate-500">
-                Name (optional)
+                {t("nameOptional", "Name (optional)")}
               </span>
               <input
                 type="text"
@@ -137,7 +149,7 @@ export default function AdminPanel() {
             </label>
             <label className="text-sm text-slate-700">
               <span className="mb-1 block text-xs uppercase tracking-wide text-slate-500">
-                Target role
+                {t("targetRole", "Target role")}
               </span>
               <select
                 value={inviteForm.team}
@@ -149,8 +161,8 @@ export default function AdminPanel() {
                 }
                 className="w-full rounded-xl border border-slate-200 px-3 py-2 focus:border-emerald-500 focus:outline-none"
               >
-                <option value="editor">Editor</option>
-                <option value="admin">Admin</option>
+                <option value="editor">{t("editorConsole", "Editor")}</option>
+                <option value="admin">{t("admin", "Admin")}</option>
               </select>
             </label>
             <div className="flex items-end">
@@ -158,7 +170,7 @@ export default function AdminPanel() {
                 type="submit"
                 className="w-full rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 px-3 py-2 text-sm font-semibold text-white shadow hover:brightness-110"
               >
-                Approve & Invite
+                {t("approveInvite", "Approve & Invite")}
               </button>
             </div>
           </form>
@@ -168,11 +180,11 @@ export default function AdminPanel() {
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-900">
-            Pending edits
+            {t("pendingEdits", "Pending edits")}
           </h2>
           {isLoading && (
             <span className="text-xs font-semibold uppercase tracking-wider text-emerald-600">
-              Loading…
+              {t("loadingEllipsis", "Loading…")}
             </span>
           )}
         </div>
@@ -180,11 +192,11 @@ export default function AdminPanel() {
           <table className="min-w-full text-sm">
             <thead>
               <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
-                <th className="px-3 py-2">Facility</th>
-                <th className="px-3 py-2">Action</th>
-                <th className="px-3 py-2">Submitted by</th>
-                <th className="px-3 py-2">Timestamp</th>
-                <th className="px-3 py-2">Decision</th>
+                <th className="px-3 py-2">{t("facility", "Facility")}</th>
+                <th className="px-3 py-2">{t("action", "Action")}</th>
+                <th className="px-3 py-2">{t("submittedBy", "Submitted by")}</th>
+                <th className="px-3 py-2">{t("timestamp", "Timestamp")}</th>
+                <th className="px-3 py-2">{t("decision", "Decision")}</th>
               </tr>
             </thead>
             <tbody>
@@ -208,14 +220,14 @@ export default function AdminPanel() {
                         onClick={() => handleDecision(edit.$id, "approved")}
                         className="rounded-full border border-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50"
                       >
-                        Approve
+                        {t("approve", "Approve")}
                       </button>
                       <button
                         type="button"
                         onClick={() => handleDecision(edit.$id, "rejected")}
                         className="rounded-full border border-rose-100 px-3 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-50"
                       >
-                        Reject
+                        {t("reject", "Reject")}
                       </button>
                     </div>
                   </td>

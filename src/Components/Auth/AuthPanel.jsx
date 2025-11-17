@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../hooks/useAuth.js";
+import { useLanguage } from "../../context/LanguageContext.jsx";
 
 export default function AuthPanel() {
   const { login, register, loading, error: authError } = useAuth();
+  const { t, direction } = useLanguage();
   const [mode, setMode] = useState("login");
   const [form, setForm] = useState({ email: "", password: "", name: "" });
   const [error, setError] = useState(null);
@@ -35,24 +37,30 @@ export default function AuthPanel() {
   };
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-slate-900/95 p-4 text-sm text-white shadow-2xl shadow-cyan-500/20">
+    <div
+      className={`rounded-2xl border border-white/10 bg-slate-900/95 p-4 text-sm text-white shadow-2xl shadow-cyan-500/20 ${
+        direction === "rtl" ? "text-right" : ""
+      }`}
+    >
       <div className="mb-3 flex items-center justify-between">
         <p className="text-sm font-semibold text-white">
-          {isLogin ? "Sign in" : "Create account"}
+          {isLogin ? t("signIn", "Sign in") : t("createAccount", "Create account")}
         </p>
         <button
           type="button"
           onClick={() => setMode(isLogin ? "register" : "login")}
           className="text-[11px] font-semibold uppercase tracking-wide text-cyan-300"
         >
-          {isLogin ? "Need access?" : "Have an account?"}
+          {isLogin
+            ? t("needAccess", "Need access?")
+            : t("haveAccount", "Have an account?")}
         </button>
       </div>
       <form onSubmit={handleSubmit} className="space-y-3 text-sm">
         {!isLogin && (
           <label className="block text-slate-100">
             <span className="mb-1 block text-[11px] uppercase tracking-wide text-slate-400">
-              Full name
+              {t("fullName", "Full name")}
             </span>
             <input
               type="text"
@@ -70,7 +78,7 @@ export default function AuthPanel() {
         )}
         <label className="block text-slate-100">
           <span className="mb-1 block text-[11px] uppercase tracking-wide text-slate-400">
-            Email
+            {t("email", "Email")}
           </span>
           <input
             type="email"
@@ -87,7 +95,7 @@ export default function AuthPanel() {
         </label>
         <label className="block text-slate-100">
           <span className="mb-1 block text-[11px] uppercase tracking-wide text-slate-400">
-            Password
+            {t("password", "Password")}
           </span>
           <input
             type="password"
@@ -113,7 +121,11 @@ export default function AuthPanel() {
           disabled={loading}
           className="w-full rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 px-3 py-2 font-semibold text-white transition hover:brightness-110 disabled:bg-slate-500"
         >
-          {loading ? "Please wait…" : isLogin ? "Sign in" : "Create account"}
+          {loading
+            ? t("pleaseWait", "Please wait…")
+            : isLogin
+              ? t("signIn", "Sign in")
+              : t("createAccount", "Create account")}
         </button>
       </form>
     </div>

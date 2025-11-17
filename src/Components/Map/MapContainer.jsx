@@ -10,6 +10,7 @@ import "leaflet.markercluster";
 import FacilityPopup from "./FacilityPopup.jsx";
 import { useFacilities } from "../../hooks/useFacilities.js";
 import { useFilters } from "../../hooks/useFilters.js";
+import { useLanguage } from "../../context/LanguageContext.jsx";
 
 const TYPE_COLORS = {
   Hospital: "red",
@@ -23,6 +24,7 @@ const BASE_LAYERS = [
   {
     id: "cartoDark",
     name: "Carto Dark",
+    name_ar: "كارتو داكن",
     url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
     attribution:
       '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
@@ -32,6 +34,7 @@ const BASE_LAYERS = [
   {
     id: "cartoLight",
     name: "Carto Light",
+    name_ar: "كارتو فاتح",
     url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
     attribution:
       '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
@@ -41,6 +44,7 @@ const BASE_LAYERS = [
   {
     id: "osm",
     name: "OSM Standard",
+    name_ar: "خريطة OSM القياسية",
     url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
     attribution:
       '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
@@ -50,6 +54,7 @@ const BASE_LAYERS = [
   {
     id: "satellite",
     name: "Esri Satellite",
+    name_ar: "إسري ساتلايت",
     url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
     attribution:
       "Tiles &copy; Esri, Maxar, Earthstar Geographics, and the GIS User Community",
@@ -90,6 +95,7 @@ L.Icon.Default.mergeOptions({
 export default function MapComponent() {
   const { facilities, governorates, isLoading } = useFacilities();
   const { filters } = useFilters();
+  const { t, direction } = useLanguage();
   const [baseLayerKey, setBaseLayerKey] = useState("cartoDark");
   const [markerTheme, setMarkerTheme] = useState("byType");
   const mapRef = useRef(null);
@@ -265,6 +271,8 @@ export default function MapComponent() {
         onToggleTheme={handleToggleTheme}
         onResetView={handleResetView}
         onFitToFacilities={handleFitToFacilities}
+        t={t}
+        direction={direction}
       />
 
       <LeafletMap
@@ -339,24 +347,32 @@ function MapControls({
   onToggleTheme,
   onResetView,
   onFitToFacilities,
+  t,
+  direction,
 }) {
   return (
-    <div className="absolute right-4 top-4 z-[1100] flex w-64 flex-col gap-3 rounded-2xl bg-slate-900/80 p-4 text-white shadow-xl shadow-cyan-500/20 backdrop-blur">
+    <div
+      className={`absolute right-4 top-4 z-[1100] flex w-64 flex-col gap-3 rounded-2xl bg-slate-900/80 p-4 text-white shadow-xl shadow-cyan-500/20 backdrop-blur ${
+        direction === "rtl" ? "text-right" : ""
+      }`}
+    >
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-200">
-          Map Controls
+          {t("mapControls", "Map Controls")}
         </h3>
         <button
           type="button"
           onClick={onToggleTheme}
           className="rounded-full border border-white/20 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide hover:border-cyan-400 hover:text-cyan-200"
         >
-          {baseLayerKey === "cartoDark" ? "Light" : "Dark"}
+          {baseLayerKey === "cartoDark"
+            ? t("light", "Light")
+            : t("dark", "Dark")}
         </button>
       </div>
 
       <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-        Base layer
+        {t("baseLayer", "Base layer")}
         <select
           className="mt-1 w-full rounded-lg border border-white/10 bg-slate-800/80 px-3 py-2 text-sm text-white focus:border-cyan-400 focus:outline-none"
           value={baseLayerKey}
@@ -364,21 +380,21 @@ function MapControls({
         >
           {BASE_LAYERS.map((layer) => (
             <option key={layer.id} value={layer.id}>
-              {layer.name}
+              {direction === "rtl" ? layer.name_ar ?? layer.name : layer.name}
             </option>
           ))}
         </select>
       </label>
 
       <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-        Marker style
+        {t("markerStyle", "Marker style")}
         <select
           className="mt-1 w-full rounded-lg border border-white/10 bg-slate-800/80 px-3 py-2 text-sm text-white focus:border-cyan-400 focus:outline-none"
           value={markerTheme}
           onChange={(event) => onMarkerThemeChange(event.target.value)}
         >
-          <option value="byType">Color by type</option>
-          <option value="single">Single color</option>
+          <option value="byType">{t("colorByType", "Color by type")}</option>
+          <option value="single">{t("singleColor", "Single color")}</option>
         </select>
       </label>
 
@@ -388,14 +404,14 @@ function MapControls({
           onClick={onResetView}
           className="rounded-xl border border-white/10 bg-slate-800/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide hover:border-cyan-400 hover:text-cyan-200"
         >
-          Reset view
+          {t("resetView", "Reset view")}
         </button>
         <button
           type="button"
           onClick={onFitToFacilities}
           className="rounded-xl border border-white/10 bg-slate-800/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide hover:border-cyan-400 hover:text-cyan-200"
         >
-          Fit to data
+          {t("fitToData", "Fit to data")}
         </button>
       </div>
     </div>
@@ -410,4 +426,6 @@ MapControls.propTypes = {
   onToggleTheme: PropTypes.func.isRequired,
   onResetView: PropTypes.func.isRequired,
   onFitToFacilities: PropTypes.func.isRequired,
+  t: PropTypes.func.isRequired,
+  direction: PropTypes.oneOf(["rtl", "ltr"]).isRequired,
 };

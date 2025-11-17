@@ -8,6 +8,7 @@ import {
   saveFacility,
 } from "../../services/appwriteService.js";
 import { translateStatuses } from "../../utils/statusTranslations.js";
+import { useLanguage } from "../../context/LanguageContext.jsx";
 
 const EMPTY_FORM = {
   facilityName: "",
@@ -23,6 +24,7 @@ const EMPTY_FORM = {
 
 export default function FacilityForm({ facilityId = null, onSuccess }) {
   const { user } = useAuth();
+  const { t, direction } = useLanguage();
   const [form, setForm] = useState(() => ({ ...EMPTY_FORM }));
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
@@ -65,8 +67,11 @@ export default function FacilityForm({ facilityId = null, onSuccess }) {
   }, [facilityId]);
 
   const title = useMemo(
-    () => (facilityId ? "Update facility" : "Add new facility"),
-    [facilityId],
+    () =>
+      facilityId
+        ? t("updateFacility", "Update facility")
+        : t("createFacility", "Add new facility"),
+    [facilityId, t],
   );
 
   const handleChange = (event) => {
@@ -120,18 +125,20 @@ export default function FacilityForm({ facilityId = null, onSuccess }) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+      className={`space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm ${
+        direction === "rtl" ? "text-right" : ""
+      }`}
     >
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs uppercase tracking-wider text-slate-400">
-            Data management
+            {t("dataManagement", "Data management")}
           </p>
           <h2 className="text-xl font-semibold text-slate-900">{title}</h2>
         </div>
         {loadingFacility && (
           <span className="text-xs font-semibold uppercase tracking-wider text-emerald-600">
-            Loading…
+            {t("loading", "Loading…")}
           </span>
         )}
       </div>
@@ -150,21 +157,21 @@ export default function FacilityForm({ facilityId = null, onSuccess }) {
 
       <div className="grid gap-4 md:grid-cols-2">
         <Field
-          label="Facility name *"
+          label={t("facilityName", "Facility name *")}
           name="facilityName"
           value={form.facilityName}
           onChange={handleChange}
           error={errors.facilityName}
         />
         <Field
-          label="Establishment name"
+          label={t("establishmentName", "Establishment name")}
           name="establishmentName"
           value={form.establishmentName}
           onChange={handleChange}
           error={errors.establishmentName}
         />
         <SelectField
-          label="Governorate *"
+          label={`${t("governorate", "Governorate")} *`}
           name="governorate"
           value={form.governorate}
           onChange={handleChange}
@@ -175,7 +182,7 @@ export default function FacilityForm({ facilityId = null, onSuccess }) {
           error={errors.governorate}
         />
         <SelectField
-          label="Status *"
+          label={`${t("status", "Status")} *`}
           name="facilityStatus"
           value={form.facilityStatus}
           onChange={handleChange}
@@ -183,7 +190,7 @@ export default function FacilityForm({ facilityId = null, onSuccess }) {
           error={errors.facilityStatus}
         />
         <SelectField
-          label="Facility type *"
+          label={`${t("facilityType", "Facility type")} *`}
           name="facilityTypeLabel"
           value={form.facilityTypeLabel}
           onChange={handleChange}
@@ -194,7 +201,7 @@ export default function FacilityForm({ facilityId = null, onSuccess }) {
           error={errors.facilityTypeLabel}
         />
         <SelectField
-          label="Owner *"
+          label={`${t("owner", "Owner")} *`}
           name="facilityOwner"
           value={form.facilityOwner}
           onChange={handleChange}
@@ -205,7 +212,7 @@ export default function FacilityForm({ facilityId = null, onSuccess }) {
           error={errors.facilityOwner}
         />
         <SelectField
-          label="Affiliated to *"
+          label={`${t("affiliation", "Affiliated to")} *`}
           name="facilityAffiliation"
           value={form.facilityAffiliation}
           onChange={handleChange}
@@ -216,7 +223,7 @@ export default function FacilityForm({ facilityId = null, onSuccess }) {
           error={errors.facilityAffiliation}
         />
         <Field
-          label="Longitude *"
+          label={t("longitude", "Longitude *")}
           name="longitude"
           type="number"
           step="0.0001"
@@ -225,7 +232,7 @@ export default function FacilityForm({ facilityId = null, onSuccess }) {
           error={errors.longitude}
         />
         <Field
-          label="Latitude *"
+          label={t("latitude", "Latitude *")}
           name="latitude"
           type="number"
           step="0.0001"
@@ -235,13 +242,34 @@ export default function FacilityForm({ facilityId = null, onSuccess }) {
         />
       </div>
 
-      <button
-        type="submit"
-        disabled={submitting}
-        className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:bg-slate-400"
+      <div
+        className={`flex flex-col gap-3 md:flex-row md:items-center md:justify-between ${
+          direction === "rtl" ? "md:flex-row-reverse" : ""
+        }`}
       >
-        {submitting ? "Saving…" : facilityId ? "Update facility" : "Create facility"}
-      </button>
+        <div className="text-sm text-slate-600">
+          <p className="font-semibold text-slate-800">
+            {t("saveSubmit", "Save & submit changes")}
+          </p>
+          <p>
+            {t(
+              "saveSubmitSubtitle",
+              "Updates are reviewed before they go live. Include accurate geo coordinates (longitude, latitude).",
+            )}
+          </p>
+        </div>
+        <button
+          type="submit"
+          disabled={submitting}
+          className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-cyan-500/30 transition hover:brightness-110 disabled:opacity-50"
+        >
+          {submitting
+            ? t("saving", "Saving...")
+            : facilityId
+              ? t("updateFacility", "Update facility")
+              : t("createFacility", "Create facility")}
+        </button>
+      </div>
     </form>
   );
 }

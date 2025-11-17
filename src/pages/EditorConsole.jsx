@@ -4,11 +4,13 @@ import RecentActivity from "../Components/Activity/RecentActivity.jsx";
 import { useAuth } from "../hooks/useAuth.js";
 import { useFacilities } from "../hooks/useFacilities.js";
 import { useAppwrite } from "../hooks/useAppwrite.js";
+import { useLanguage } from "../context/LanguageContext.jsx";
 
 export default function EditorConsole() {
   const { user } = useAuth();
   const { facilities } = useFacilities();
   const { governorates, facilityTypes } = useAppwrite();
+  const { t, direction } = useLanguage();
   const [viewMode, setViewMode] = useState("create"); // 'create' | 'update'
   const [selectedFacilityId, setSelectedFacilityId] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -60,17 +62,22 @@ export default function EditorConsole() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 px-4 py-6">
+    <div
+      className={`mx-auto max-w-5xl space-y-6 px-4 py-6 ${
+        direction === "rtl" ? "text-right" : ""
+      }`}
+    >
       <header className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <p className="text-xs uppercase tracking-wider text-slate-400">
-          Editor workspace
+          {t("editorWorkspace", "Editor workspace")}
         </p>
         <h1 className="text-2xl font-semibold text-slate-900">
-          Submit or update facility information
+          {t("submitOrUpdate", "Submit or update facility information")}
         </h1>
         {user && (
           <p className="text-sm text-slate-500">
-            Signed in as <span className="font-medium">{user.email}</span>
+            {t("signedInAs", "Signed in as ")}
+            <span className="font-medium">{user.email}</span>
           </p>
         )}
       </header>
@@ -79,13 +86,16 @@ export default function EditorConsole() {
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <div>
             <p className="text-[10px] uppercase tracking-[0.35em] text-cyan-200">
-              Facility entry
+              {t("facilityEntry", "Facility entry")}
             </p>
             <h2 className="text-xl font-semibold text-white">
-              Add new facility or update existing one
+              {t("facilityEntryHeadline", "Add new facility or update existing one")}
             </h2>
             <p className="text-sm text-slate-300">
-              Save forms to submit for review and keep records current.
+              {t(
+                "facilityEntrySubtitle",
+                "Save forms to submit for review and keep records current.",
+              )}
             </p>
           </div>
           <div className="flex gap-2">
@@ -98,7 +108,7 @@ export default function EditorConsole() {
                   : "border-white/10 bg-slate-900/60 text-slate-200 hover:border-emerald-400"
               }`}
             >
-              Add New Facility
+              {t("addNewFacility", "Add New Facility")}
             </button>
             <button
               type="button"
@@ -109,14 +119,14 @@ export default function EditorConsole() {
                   : "border-white/10 bg-slate-900/60 text-slate-200 hover:border-cyan-400"
               }`}
             >
-              Update Existing Facility
+              {t("updateExistingFacility", "Update Existing Facility")}
             </button>
           </div>
         </div>
         {viewMode === "update" && (
           <div className="mb-4 space-y-3 rounded-2xl border border-white/10 bg-slate-900/60 p-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-300">
-              Choose how to find a facility
+              {t("findFacility", "Choose how to find a facility")}
             </p>
             <div className="grid gap-2 sm:grid-cols-2">
               <button
@@ -132,7 +142,7 @@ export default function EditorConsole() {
                     : "border-white/10 bg-slate-900/40 text-slate-200 hover:border-cyan-400"
                 }`}
               >
-                Search by name
+                {t("searchByName", "Search by name")}
               </button>
               <button
                 type="button"
@@ -146,7 +156,7 @@ export default function EditorConsole() {
                     : "border-white/10 bg-slate-900/40 text-slate-200 hover:border-cyan-400"
                 }`}
               >
-                Filter by governorate/type
+                {t("filterByGovType", "Filter by governorate/type")}
               </button>
             </div>
           </div>
@@ -156,7 +166,7 @@ export default function EditorConsole() {
           <div className="mb-4 grid gap-3 rounded-2xl border border-white/10 bg-slate-900/60 p-4 md:grid-cols-2 lg:grid-cols-4">
           <label className="text-sm text-slate-100 lg:col-span-2">
             <span className="mb-1 block text-[11px] uppercase tracking-wide text-slate-400">
-              Search by name
+              {t("searchByName", "Search by name")}
             </span>
             <input
               type="text"
@@ -168,14 +178,14 @@ export default function EditorConsole() {
                   setTypeFilter("");
                 }
               }}
-              placeholder="Type at least 2 characters"
+              placeholder={t("searchPlaceholder", "Type at least 2 characters")}
               disabled={selectionMode !== "search"}
               className="w-full rounded-xl border border-white/10 bg-slate-900/40 px-3 py-2 text-white placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
             />
           </label>
           <label className="text-sm text-slate-100">
             <span className="mb-1 block text-[11px] uppercase tracking-wide text-slate-400">
-              Governorate
+              {t("governorate", "Governorate")}
             </span>
             <select
               value={govFilter}
@@ -186,17 +196,22 @@ export default function EditorConsole() {
               disabled={selectionMode !== "filter"}
               className="w-full rounded-xl border border-white/10 bg-slate-900/40 px-3 py-2 text-white focus:border-cyan-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <option value="">All</option>
+              <option value="">{direction === "rtl" ? "الكل" : t("all", "All")}</option>
               {governorates.map((gov) => (
-                <option key={gov.$id} value={gov.name_AR ?? gov.name}>
-                  {gov.name ?? gov.name_AR}
+                <option
+                  key={gov.$id}
+                  value={gov.name_AR ?? gov.name}
+                >
+                  {direction === "rtl"
+                    ? gov.name_AR ?? gov.name
+                    : gov.name ?? gov.name_AR}
                 </option>
               ))}
             </select>
           </label>
           <label className="text-sm text-slate-100">
             <span className="mb-1 block text-[11px] uppercase tracking-wide text-slate-400">
-              Facility type
+              {t("facilityType", "Facility type")}
             </span>
             <select
               value={typeFilter}
@@ -207,7 +222,7 @@ export default function EditorConsole() {
               disabled={selectionMode !== "filter"}
               className="w-full rounded-xl border border-white/10 bg-slate-900/40 px-3 py-2 text-white focus:border-cyan-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <option value="">All</option>
+              <option value="">{t("all", "All")}</option>
               {facilityTypes.map((type) => (
                 <option key={type} value={type}>
                   {type}
@@ -216,17 +231,17 @@ export default function EditorConsole() {
             </select>
             {searchActive && selectionMode === "search" && (
               <p className="text-xs text-cyan-200">
-                Search is active. Clear the search box to use filters.
+                {t("searchActiveNote", "Search is active. Clear the search box to use filters.")}
               </p>
             )}
           </label>
-          </div>
+         </div>
         )}
         {viewMode === "update" && (
           <div className="mb-4 grid gap-3 md:grid-cols-[2fr,1fr]">
             <label className="text-sm text-slate-100">
               <span className="mb-1 block text-[11px] uppercase tracking-wide text-slate-400">
-                Select an existing facility to update
+                {t("selectFacilityUpdate", "Select an existing facility to update")}
               </span>
               <select
                 value={selectedFacilityId}
@@ -257,22 +272,27 @@ export default function EditorConsole() {
             <div className="flex items-end">
               <button
                 type="button"
-                onClick={() => setSelectedFacilityId("")}
-                className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm font-semibold text-white transition hover:border-cyan-400 hover:text-cyan-200"
-              >
-                Start new entry
-              </button>
-            </div>
+              onClick={() => setSelectedFacilityId("")}
+              className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm font-semibold text-white transition hover:border-cyan-400 hover:text-cyan-200"
+            >
+              {t("startNewEntry", "Start new entry")}
+            </button>
+          </div>
           </div>
         )}
         {viewMode === "create" && (
           <div className="rounded-2xl border border-emerald-200/30 bg-emerald-50/10 p-4 shadow-inner shadow-emerald-500/20">
             <p className="text-xs uppercase tracking-wide text-emerald-200">
-              Add new
+              {t("addNewLabel", "Add new")}
             </p>
-            <h3 className="text-lg font-semibold text-white">Create facility</h3>
+            <h3 className="text-lg font-semibold text-white">
+              {t("createFacilityCardTitle", "Create facility")}
+            </h3>
             <p className="text-sm text-emerald-100/80">
-              Start with a blank form to submit a new facility.
+              {t(
+                "createFacilitySubtitle",
+                "Start with a blank form to submit a new facility.",
+              )}
             </p>
             <div className="mt-3">
               <FacilityForm facilityId={null} />
@@ -282,11 +302,16 @@ export default function EditorConsole() {
         {viewMode === "update" && (
           <div className="rounded-2xl border border-cyan-200/30 bg-cyan-50/10 p-4 shadow-inner shadow-cyan-500/20">
             <p className="text-xs uppercase tracking-wide text-cyan-200">
-              Update
+              {t("updateLabel", "Update")}
             </p>
-            <h3 className="text-lg font-semibold text-white">Update existing</h3>
+            <h3 className="text-lg font-semibold text-white">
+              {t("updateExistingTitle", "Update existing")}
+            </h3>
             <p className="text-sm text-cyan-100/80">
-              Load details for the selected facility and save updates.
+              {t(
+                "updateExistingSubtitle",
+                "Load details for the selected facility and save updates.",
+              )}
             </p>
             <div className="mt-3">
               <FacilityForm
@@ -303,7 +328,7 @@ export default function EditorConsole() {
       </section>
 
       <RecentActivity
-        title="Your recent activity"
+        title={t("yourRecentActivity", "Your recent activity")}
         limit={10}
         userId={user?.$id}
       />

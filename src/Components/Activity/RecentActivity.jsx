@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import PropTypes from "prop-types";
 import { useFacilities } from "../../hooks/useFacilities.js";
+import { useLanguage } from "../../context/LanguageContext.jsx";
 
 export default function RecentActivity({
   title = "Recent edits",
@@ -9,6 +10,7 @@ export default function RecentActivity({
   status,
 }) {
   const { recentActivity } = useFacilities();
+  const { t, direction } = useLanguage();
   const items = useMemo(() => {
     let data = recentActivity;
     if (userId) {
@@ -21,9 +23,13 @@ export default function RecentActivity({
   }, [recentActivity, userId, status, limit]);
 
   return (
-    <section className="rounded-3xl border border-white/10 bg-slate-900/70 p-6 text-sm shadow-xl shadow-cyan-500/10 backdrop-blur">
+    <section
+      className={`rounded-3xl border border-white/10 bg-slate-900/70 p-6 text-sm shadow-xl shadow-cyan-500/10 backdrop-blur ${
+        direction === "rtl" ? "text-right" : ""
+      }`}
+    >
       <h3 className="text-[11px] font-semibold uppercase tracking-[0.4em] text-slate-400">
-        {title}
+        {t("recentActivity", title)}
       </h3>
       <ul className="mt-4 space-y-3 text-sm">
         {items.map((item) => (
@@ -36,14 +42,16 @@ export default function RecentActivity({
               {item.changes?.facilityName ?? item.facilityId}
             </p>
             <p className="text-xs text-slate-400">
-              {new Date(item.timestamp).toLocaleString()} — status:{" "}
+              {new Date(item.timestamp).toLocaleString()} — {t("status", "status")}:{" "}
               <span className="font-semibold">{item.status}</span>
             </p>
           </li>
         ))}
       </ul>
       {items.length === 0 && (
-        <p className="text-sm text-slate-400">No activity recorded yet.</p>
+        <p className="text-sm text-slate-400">
+          {t("noActivity", "No activity recorded yet.")}
+        </p>
       )}
     </section>
   );
