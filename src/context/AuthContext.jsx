@@ -1,29 +1,29 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import PropTypes from "prop-types";
 import { ID } from "appwrite";
-import { account, teams } from "../lib/appwrite";
+import { account, client, teams } from "../lib/appwrite";
 import env from "../utils/env";
 import { AuthContext } from "./baseContexts.js";
 
 function resolveRoleFromMemberships(memberships = []) {
-  const membershipIds = memberships.map((membership) => membership.teamId);
+  const adminsTeamId = (env.adminsTeamId || "").trim();
+  const editorsTeamId = (env.editorsTeamId || "").trim();
+
+  const membershipIds = memberships.map((membership) =>
+    (membership.teamId || "").trim(),
+  );
+
   const hasAdminRole = memberships.some((membership) =>
     (membership.roles ?? []).some((role) =>
       ["owner", "admin", "administrator"].includes(role.toLowerCase()),
     ),
   );
 
-  if (
-    (env.adminsTeamId && membershipIds.includes(env.adminsTeamId)) ||
-    hasAdminRole
-  ) {
+  if ((adminsTeamId && membershipIds.includes(adminsTeamId)) || hasAdminRole) {
     return "admin";
   }
 
-  if (
-    env.editorsTeamId &&
-    membershipIds.includes(env.editorsTeamId)
-  ) {
+  if (editorsTeamId && membershipIds.includes(editorsTeamId)) {
     return "editor";
   }
 
@@ -44,42 +44,73 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  const fetchUserContext = useCallback(async () => {
+    const accountProfile = await account.get();
+    const memberships = [];
+    const addMembership = (membership) => {
+      const teamId =
+        membership.teamId ??
+        membership.team?.$id ??
+        membership.team?.id ??
+        membership.$teamId ??
+        "";
+      const roles = membership.roles ?? [];
+      if (!teamId) return;
+      // Avoid duplicates
+      if (memberships.some((m) => m.teamId === teamId)) return;
+      memberships.push({ teamId, roles });
+    };
+
+    try {
+      // Preferred: SDK helper
+      const res = await account.listMemberships();
+      (res.memberships ?? []).forEach(addMembership);
+    } catch (sdkErr) {
+      // Fallback to raw call (older SDKs may miss listMemberships)
+      try {
+        const res = await client.call("get", "/account/memberships");
+        (res.memberships ?? []).forEach(addMembership);
+      } catch (err) {
+        console.warn("Unable to fetch account memberships", err);
+      }
+    }
+
+    // Targeted fallback: check specific teams by ID to avoid empty membership lists
+    const candidateTeamIds = [env.adminsTeamId, env.editorsTeamId]
+      .map((id) => id?.trim())
+      .filter(Boolean);
+
+    for (const teamId of candidateTeamIds) {
+      try {
+        const res = await teams.listMemberships(teamId);
+        const match = (res.memberships ?? []).find((membership) => {
+          const userId =
+            membership.userId ??
+            membership.$userId ??
+            membership.user?.$id ??
+            membership.user?.id ??
+            "";
+          return userId && userId === accountProfile?.$id;
+        });
+        if (match) {
+          addMembership(match);
+        }
+      } catch (err) {
+        // Ignore 404/403; only warn unexpected errors
+        if (err?.code && [403, 404].includes(err.code)) {
+          continue;
+        }
+        console.warn(`Unable to fetch team memberships for team ${teamId}`, err);
+      }
+    }
+
+    return { accountProfile, memberships };
+  }, []);
+
   const refreshUser = useCallback(async () => {
     try {
       setLoading(true);
-      const accountProfile = await account.get();
-      const memberships = [];
-
-      const addMemberships = (response = {}) => {
-        (response.memberships ?? [])
-          .filter(
-            (membership) => membership.userId === accountProfile.$id,
-          )
-          .forEach((membership) => memberships.push(membership));
-      };
-
-      if (env.adminsTeamId) {
-        try {
-          const adminMemberships = await teams.listMemberships(
-            env.adminsTeamId,
-          );
-          addMemberships(adminMemberships);
-        } catch (err) {
-          console.warn("Unable to load admin team memberships", err);
-        }
-      }
-
-      if (env.editorsTeamId) {
-        try {
-          const editorMemberships = await teams.listMemberships(
-            env.editorsTeamId,
-          );
-          addMemberships(editorMemberships);
-        } catch (err) {
-          console.warn("Unable to load editor team memberships", err);
-        }
-      }
-
+      const { accountProfile, memberships } = await fetchUserContext();
       setUser(accountProfile);
       setRole(resolveRoleFromMemberships(memberships));
       setError(null);
@@ -97,7 +128,7 @@ export function AuthProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [fetchUserContext]);
 
   useEffect(() => {
     refreshUser();
@@ -105,40 +136,45 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(
     async ({ email, password }) => {
-      setError(null);
       try {
-        // If already authenticated, just refresh.
-        const current = await account.get();
-        if (current?.$id) {
-          await refreshUser();
-          return;
-        }
-      } catch (err) {
-        // proceed to create session
-      }
+        setLoading(true);
+        setError(null);
 
-      await clearExistingSessions();
-      try {
-        await account.createEmailPasswordSession(email, password);
-      } catch (err) {
-        // If a session already exists, refresh the user and continue.
-        if (
-          err?.code === 409 ||
-          (typeof err?.message === "string" &&
-            err.message.toLowerCase().includes("session is active"))
-        ) {
-          await refreshUser();
-          return;
+        await clearExistingSessions();
+
+        try {
+          await account.createEmailPasswordSession(email, password);
+        } catch (err) {
+          // If a session already exists, refresh the user and continue.
+          if (
+            err?.code === 409 ||
+            (typeof err?.message === "string" &&
+              err.message.toLowerCase().includes("session is active"))
+          ) {
+            await refreshUser();
+            return;
+          }
+          const message =
+            err?.message ??
+            "Invalid credentials. Please check the email and password.";
+          setError({ ...err, message });
+          throw err;
         }
+
+        const { accountProfile, memberships } = await fetchUserContext();
+        setUser(accountProfile);
+        setRole(resolveRoleFromMemberships(memberships));
+        setError(null);
+      } catch (err) {
         const message =
           err?.message ??
           "Invalid credentials. Please check the email and password.";
         setError({ ...err, message });
-        throw err;
+      } finally {
+        setLoading(false);
       }
-      await refreshUser();
     },
-    [clearExistingSessions, refreshUser],
+    [clearExistingSessions, fetchUserContext, refreshUser],
   );
 
   const register = useCallback(
