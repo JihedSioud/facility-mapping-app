@@ -185,6 +185,15 @@ export function AuthProvider({ children }) {
   const register = useCallback(
     async ({ email, password, name }) => {
       setError(null);
+      if (!name || !name.toString().trim()) {
+        throw new Error("Name is required.");
+      }
+      if (!email || !email.toString().trim()) {
+        throw new Error("Email is required.");
+      }
+      if (!password || password.toString().length < 6) {
+        throw new Error("Password is required (min 6 characters).");
+      }
       await account.create(ID.unique(), email, password, name);
       await clearExistingSessions();
       await account.createEmailPasswordSession(email, password);

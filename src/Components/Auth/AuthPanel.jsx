@@ -27,6 +27,17 @@ export default function AuthPanel() {
           password: form.password,
         });
       } else {
+        if (!form.name.trim()) {
+          throw new Error(t("nameRequired", "Full name is required."));
+        }
+        if (!form.email.trim()) {
+          throw new Error(t("emailRequired", "Email is required."));
+        }
+        if (!form.password || form.password.length < 6) {
+          throw new Error(
+            t("passwordRequired", "Password is required (min 6 characters)."),
+          );
+        }
         await register({
           email: form.email,
           password: form.password,
