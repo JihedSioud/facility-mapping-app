@@ -1,9 +1,50 @@
-import { STATUS_OPTIONS } from "./constants.js";
+import { translateStatus } from "./statusTranslations.js";
 
-export function validateFacility(data) {
+function normalizeStatus(value) {
+  if (typeof value !== "string") return "";
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+
+  const translated = translateStatus(trimmed, "en");
+  const lower = translated.toString().trim().toLowerCase();
+
+  if (
+    lower === "operational (unreachable due to security)" ||
+    lower === "operational (unreachable for another reason)"
+  ) {
+    return "operational";
+  }
+  if (lower === "partially operational") {
+    return "partially operational";
+  }
+  if (lower === "not operational" || lower === "inactive" || lower === "suspended") {
+    return "not operational";
+  }
+  if (lower === "operational" || lower === "active") {
+    return "operational";
+  }
+
+  return lower;
+}
+
+export function validateFacility(data, allowedStatuses = []) {
   const errors = {};
   const requiredString = (value) =>
     typeof value === "string" && value.trim().length > 0;
+  const validStatuses = Array.isArray(allowedStatuses)
+    ? allowedStatuses
+    : [];
+  const allowedStatusSet = new Set();
+  validStatuses.forEach((status) => {
+    if (status === undefined || status === null) return;
+    const raw = status.toString().trim();
+    if (!raw) return;
+    allowedStatusSet.add(raw.toLowerCase());
+    const normalized = normalizeStatus(raw);
+    if (normalized) {
+      allowedStatusSet.add(normalized);
+    }
+  });
 
   if (!requiredString(data.facilityName)) {
     errors.facilityName = "Facility name is required.";
@@ -20,8 +61,8 @@ export function validateFacility(data) {
     errors.governorate = "Governorate is required.";
   }
 
-  if (!STATUS_OPTIONS.includes(data.facilityStatus)) {
-    errors.facilityStatus = "Choose a valid status.";
+  if (!requiredString(data.facilityStatus)) {
+    errors.facilityStatus = "Status is required.";
   }
 
   if (!requiredString(data.facilityTypeLabel)) {

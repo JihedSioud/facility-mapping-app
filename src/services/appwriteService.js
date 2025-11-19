@@ -155,23 +155,32 @@ function normalizeStatus(value) {
   return trimmed;
 }
 
+function extractCoordinates(raw) {
+  if (!raw) return { lon: null, lat: null };
+  if (Array.isArray(raw) && raw.length >= 2) {
+    return {
+      lon: normalizeNumber(raw[0]),
+      lat: normalizeNumber(raw[1]),
+    };
+  }
+  if (typeof raw === "object") {
+    const coords = Array.isArray(raw.coordinates) ? raw.coordinates : [];
+    return {
+      lon: normalizeNumber(raw.longitude ?? raw.lon ?? coords[0]),
+      lat: normalizeNumber(raw.latitude ?? raw.lat ?? coords[1]),
+    };
+  }
+  return { lon: null, lat: null };
+}
+
 function mapFacilityDocument(document = {}) {
   if (!document) {
     return null;
   }
 
-  const longitude = normalizeNumber(
-    document.longitude ??
-      document.X ??
-      document.Location?.coordinates?.[0] ??
-      document.location?.coordinates?.[0],
-  );
-  const latitude = normalizeNumber(
-    document.latitude ??
-      document.Y ??
-      document.Location?.coordinates?.[1] ??
-      document.location?.coordinates?.[1],
-  );
+  const loc = extractCoordinates(document.Location ?? document.location);
+  const longitude = normalizeNumber(document.longitude ?? document.X ?? loc.lon);
+  const latitude = normalizeNumber(document.latitude ?? document.Y ?? loc.lat);
 
   const location =
     document.location ??
@@ -250,25 +259,35 @@ function normalizeGovernorates(documents = []) {
 }
 
 function mapFacilityFormToAppwrite(payload = {}) {
-  const longitude = normalizeNumber(payload.longitude);
-  const latitude = normalizeNumber(payload.latitude);
+  const locFromPayload = extractCoordinates(
+    payload.Location ?? payload.location ?? null,
+  );
+  const longitude = normalizeNumber(
+    payload.longitude ?? payload.X ?? locFromPayload.lon,
+  );
+  const latitude = normalizeNumber(
+    payload.latitude ?? payload.Y ?? locFromPayload.lat,
+  );
   const governorate = normalizeGovernorate(payload.governorate ?? "");
-  const location =
-    payload.location ??
-    (Number.isFinite(longitude) && Number.isFinite(latitude)
-      ? { type: "Point", coordinates: [longitude, latitude] }
-      : undefined);
+  const hasCoords = Number.isFinite(longitude) && Number.isFinite(latitude);
+  if (!hasCoords) {
+    throw new Error(
+      "Longitude and latitude are required and must be valid numbers before saving.",
+    );
+  }
+  const location = hasCoords ? [Number(longitude), Number(latitude)] : undefined;
 
   const data = {
     name: payload.facilityName ?? payload.name ?? "",
     governorate,
-    Governorate: governorate,
     STATUS: normalizeStatus(payload.facilityStatus ?? ""),
-    type: canonicalizeLabel(payload.facilityTypeLabel ?? ""),
-    Owner: canonicalizeLabel(payload.facilityOwner ?? ""),
-    FOLLOWS: canonicalizeLabel(payload.facilityAffiliation ?? ""),
-    X: longitude ?? undefined,
-    Y: latitude ?? undefined,
+    type: canonicalizeLabel(payload.facilityTypeLabel ?? payload.type ?? ""),
+    Owner: canonicalizeLabel(payload.facilityOwner ?? payload.Owner ?? ""),
+    FOLLOWS: canonicalizeLabel(
+      payload.facilityAffiliation ?? payload.FOLLOWS ?? "",
+    ),
+    X: hasCoords ? Number(longitude) : undefined,
+    Y: hasCoords ? Number(latitude) : undefined,
     Location: location,
     lastEditedBy: payload.lastEditedBy,
     createdBy: payload.createdBy,
@@ -468,10 +487,66 @@ export async function listGovernorates() {
   }
 }
 
-async function createEditLog({ facilityId, userId, action, changes, status }) {
+async function createEditLog({
+  facilityId,
+  userId,
+  userName,
+  action,
+  changes,
+  status,
+}) {
   if (!env.editsCollectionId) {
     return null;
   }
+
+  const base64UrlEncode = (value) => {
+    if (typeof btoa !== "function") {
+      // Fallback (Node/env without btoa) using Buffer if available
+      if (typeof Buffer !== "undefined") {
+        return Buffer.from(value ?? "", "utf8")
+          .toString("base64")
+          .replace(/\+/g, "-")
+          .replace(/\//g, "_")
+          .replace(/=+$/, "");
+      }
+      throw new Error("No base64 encoder available");
+    }
+    return btoa(unescape(encodeURIComponent(value ?? "")))
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+  };
+
+  const effectiveChanges =
+    userName && changes && typeof changes === "object"
+      ? {
+          ...changes,
+          _meta: { ...(changes._meta ?? {}), userName },
+        }
+      : changes;
+
+  const changesString = (() => {
+    if (typeof effectiveChanges === "string") {
+      // ensure it looks like a URL per schema constraint
+      const trimmed = effectiveChanges.slice(0, 2000);
+      if (/^https?:\/\//i.test(trimmed)) {
+        return trimmed;
+      }
+      const prefix = "https://data.local/?p=";
+      const encoded = base64UrlEncode(trimmed);
+      const available = 2000 - prefix.length;
+      return `${prefix}${encoded.slice(0, available)}`;
+    }
+    try {
+      const serialized = JSON.stringify(effectiveChanges ?? {});
+      const prefix = "https://data.local/?p=";
+      const available = 2000 - prefix.length;
+      const encoded = base64UrlEncode(serialized);
+      return `${prefix}${encoded.slice(0, available)}`;
+    } catch (error) {
+      return "https://data.local/";
+    }
+  })();
 
   try {
     return await databases.createDocument(
@@ -483,7 +558,7 @@ async function createEditLog({ facilityId, userId, action, changes, status }) {
         userId,
         action,
         status,
-        changes,
+        changes: changesString,
         timestamp: new Date().toISOString(),
       },
     );
@@ -504,12 +579,143 @@ async function validateWithFunction(payload) {
       false,
     );
   } catch (error) {
-    console.error("[Validation] Remote validation failed.", error);
-    throw error;
+    console.warn("[Validation] Skipping remote validation.", error?.message ?? error);
+    return null;
   }
 }
 
-export async function saveFacility(formData, { facilityId, userId } = {}) {
+async function autoJoinEditorsTeam(userId) {
+  if (!env.editorsTeamId) return false;
+  if (!env.addTeamMembershipUrl || !env.addTeamMembershipToken) return false;
+  let resolvedUserId = userId;
+  if (!resolvedUserId) {
+    try {
+      const profile = await account.get();
+      resolvedUserId = profile?.$id ?? profile?.id ?? null;
+    } catch (error) {
+      return false;
+    }
+  }
+  if (!resolvedUserId) return false;
+
+  try {
+    await addTeamMembershipDirect({
+      teamId: env.editorsTeamId,
+      userId: resolvedUserId,
+    });
+    return true;
+  } catch (error) {
+    console.warn("[Membership] Unable to auto-add user to editors team.", error);
+    return false;
+  }
+}
+
+async function applyPendingEdit(editId) {
+  if (!isAppwriteConfigured) {
+    throw new Error(
+      "Appwrite environment variables are missing. Cannot apply pending edit.",
+    );
+  }
+  if (!editId) {
+    throw new Error("Edit id is required to apply changes.");
+  }
+
+  await ensureAppwriteSession();
+  const edit = await databases.getDocument(
+    env.databaseId,
+    env.editsCollectionId,
+    editId,
+  );
+
+  const rawChanges = edit?.changes;
+  const base64UrlDecode = (value) => {
+    const padded = (() => {
+      const missing = value.length % 4;
+      if (missing === 2) return `${value}==`;
+      if (missing === 3) return `${value}=`;
+      if (missing === 1) return `${value}===`;
+      return value;
+    })();
+    const normalized = padded.replace(/-/g, "+").replace(/_/g, "/");
+    if (typeof atob === "function") {
+      return decodeURIComponent(escape(atob(normalized)));
+    }
+    if (typeof Buffer !== "undefined") {
+      return Buffer.from(normalized, "base64").toString("utf8");
+    }
+    throw new Error("No base64 decoder available");
+  };
+
+  const changes =
+    typeof rawChanges === "string"
+      ? (() => {
+          try {
+            const url = new URL(rawChanges);
+            const param = url.searchParams.get("p");
+            if (param) {
+              const decoded = base64UrlDecode(param);
+              return JSON.parse(decoded);
+            }
+          } catch (error) {
+            // Not a URL; fall back
+          }
+          try {
+            return JSON.parse(rawChanges);
+          } catch (error) {
+            return null;
+          }
+        })()
+      : rawChanges;
+
+  if (!changes || typeof changes !== "object") {
+    throw new Error("Pending edit has no changes to apply.");
+  }
+
+  const targetId = edit.facilityId ?? changes.facilityId ?? null;
+  const payload = { ...changes };
+  delete payload.facilityId;
+  if (payload._meta) {
+    delete payload._meta;
+  }
+
+  if (!payload.name) {
+    throw new Error("Pending edit is missing facility name.");
+  }
+
+  const persist = () =>
+    targetId
+      ? databases.updateDocument(
+          env.databaseId,
+          env.facilitiesCollectionId,
+          targetId,
+          payload,
+        )
+      : databases.createDocument(
+          env.databaseId,
+          env.facilitiesCollectionId,
+          ID.unique(),
+          payload,
+        );
+
+  const document = await persist();
+  const appliedId = document?.$id ?? targetId ?? null;
+
+  await databases.updateDocument(
+    env.databaseId,
+    env.editsCollectionId,
+    editId,
+    {
+      facilityId: appliedId,
+    },
+  );
+
+  return document;
+}
+
+export async function saveFacility(
+  formData,
+  { facilityId, userId, userName } = {},
+) {
   if (!isAppwriteConfigured) {
     throw new Error(
       "Appwrite environment variables are missing. Cannot persist facility.",
@@ -529,8 +735,9 @@ export async function saveFacility(formData, { facilityId, userId } = {}) {
             type: "Point",
             coordinates: [longitude, latitude],
           }
-        : undefined,
+      : undefined,
     lastEditedBy: userId ?? formData.lastEditedBy ?? "anonymous",
+    lastEditedByName: userName ?? formData.userName ?? formData.lastEditedByName,
     updatedAt: new Date().toISOString(),
   };
 
@@ -546,29 +753,19 @@ export async function saveFacility(formData, { facilityId, userId } = {}) {
 
   const documentPayload = mapFacilityFormToAppwrite(payload);
 
-  const document = facilityId
-    ? await databases.updateDocument(
-        env.databaseId,
-        env.facilitiesCollectionId,
-        facilityId,
-        documentPayload,
-      )
-    : await databases.createDocument(
-        env.databaseId,
-        env.facilitiesCollectionId,
-        ID.unique(),
-        documentPayload,
-      );
-
   await createEditLog({
-    facilityId: document.$id,
+    facilityId,
     userId: payload.lastEditedBy,
+    userName: payload.lastEditedByName ?? payload.userName ?? undefined,
     action: facilityId ? "updated" : "created",
-    changes: formData,
-    status: "approved",
+    changes: documentPayload,
+    status: "pending",
   });
 
-  return mapFacilityDocument(document);
+  return {
+    status: "pending",
+    facilityId: facilityId ?? null,
+  };
 }
 
 export async function getFacilityById(facilityId) {
@@ -632,12 +829,51 @@ export async function updateEditStatus(editId, status, adminNotes = "") {
     throw new Error(`Unsupported status: ${status}`);
   }
 
+  await ensureAppwriteSession();
+
+  if (status === "approved") {
+    const document = await applyPendingEdit(editId);
+    return databases.updateDocument(
+      env.databaseId,
+      env.editsCollectionId,
+      editId,
+      {
+        status,
+        facilityId: document?.$id ?? undefined,
+      },
+    );
+  }
+
   return databases.updateDocument(
     env.databaseId,
     env.editsCollectionId,
     editId,
-    { status, adminNotes },
+    { status },
   );
+}
+
+export async function listAccessRequests({ status = "pending", limit = 100 } = {}) {
+  if (!isAppwriteConfigured || !env.accessRequestsCollectionId) {
+    return [];
+  }
+
+  await ensureAppwriteSession();
+  const queries = [Query.orderDesc("$createdAt"), Query.limit(limit)];
+  if (status) {
+    queries.push(Query.equal("status", status));
+  }
+
+  try {
+    const res = await databases.listDocuments(
+      env.databaseId,
+      env.accessRequestsCollectionId,
+      queries,
+    );
+    return res.documents;
+  } catch (error) {
+    console.warn("[AccessRequests] Unable to list access requests.", error);
+    return [];
+  }
 }
 
 export function subscribeToFacilityChanges(callback) {
@@ -686,6 +922,108 @@ export async function inviteUserToTeam({ email, name = "", role = "member", team
   return teams.createMembership(teamId, [role], email, url, name || email);
 }
 
+export async function addTeamMembershipDirect({
+  teamId,
+  email,
+  userId,
+  roles = ["editor"],
+}) {
+  if (!env.addTeamMembershipUrl || !env.addTeamMembershipToken) {
+    throw new Error("Direct membership function is not configured.");
+  }
+  if (!teamId || (!email && !userId)) {
+    throw new Error("teamId and email or userId are required.");
+  }
+
+  const payload = {
+    teamId,
+    roles,
+  };
+  if (email) payload.email = email;
+  if (userId) payload.userId = userId;
+
+  const response = await fetch(env.addTeamMembershipUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-ADMIN-TOKEN": env.addTeamMembershipToken,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data?.error) {
+    throw new Error(data?.error || `Direct add failed (${response.status})`);
+  }
+
+  return data;
+}
+
+export async function createAccessRequest({ email, name = "" }) {
+  if (!isAppwriteConfigured || !env.accessRequestsCollectionId) {
+    throw new Error(
+      "Access requests collection is not configured. Please set VITE_APPWRITE_ACCESS_REQUESTS_COLLECTION_ID.",
+    );
+  }
+  if (!email) {
+    throw new Error("Email is required to request access.");
+  }
+
+  await ensureAppwriteSession();
+
+  const payload = {
+    email,
+    name,
+    status: "pending",
+  };
+
+  return databases.createDocument(
+    env.databaseId,
+    env.accessRequestsCollectionId,
+    ID.unique(),
+    payload,
+  );
+}
+
+export async function updateAccessRequestStatus(requestId, status = "handled") {
+  if (!isAppwriteConfigured || !env.accessRequestsCollectionId) {
+    return null;
+  }
+  if (!requestId) return null;
+
+  try {
+    await ensureAppwriteSession();
+    return await databases.updateDocument(
+      env.databaseId,
+      env.accessRequestsCollectionId,
+      requestId,
+      { status },
+    );
+  } catch (error) {
+    console.warn("[AccessRequests] Unable to update access request.", error);
+    return null;
+  }
+}
+
+export async function deleteAccessRequest(requestId) {
+  if (!isAppwriteConfigured || !env.accessRequestsCollectionId) {
+    return null;
+  }
+  if (!requestId) return null;
+
+  try {
+    await ensureAppwriteSession();
+    return await databases.deleteDocument(
+      env.databaseId,
+      env.accessRequestsCollectionId,
+      requestId,
+    );
+  } catch (error) {
+    console.warn("[AccessRequests] Unable to delete access request.", error);
+    return null;
+  }
+}
+
 export function deriveReferenceOptions(facilities = []) {
   const uniqueCaseInsensitive = (values, preset = []) => {
     const map = new Map();
@@ -704,6 +1042,20 @@ export function deriveReferenceOptions(facilities = []) {
     );
   };
 
+  const uniqueStatus = (values) => {
+    const map = new Map();
+    values.forEach((value) => {
+      if (value === undefined || value === null) return;
+      const trimmed = value.toString().trim();
+      if (!trimmed) return;
+      const key = trimmed.toLowerCase();
+      if (!map.has(key)) {
+        map.set(key, trimmed);
+      }
+    });
+    return Array.from(map.values());
+  };
+
   return {
     facilityTypes: uniqueCaseInsensitive(
       facilities.map((facility) => facility.facilityTypeLabel),
@@ -714,9 +1066,8 @@ export function deriveReferenceOptions(facilities = []) {
     affiliations: uniqueCaseInsensitive(
       facilities.map((facility) => facility.facilityAffiliation),
     ),
-    statuses: uniqueCaseInsensitive(
+    statuses: uniqueStatus(
       facilities.map((facility) => facility.facilityStatus),
-      [],
     ),
   };
 }

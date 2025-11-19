@@ -8,6 +8,7 @@ import { AuthContext } from "./baseContexts.js";
 function resolveRoleFromMemberships(memberships = []) {
   const adminsTeamId = (env.adminsTeamId || "").trim();
   const editorsTeamId = (env.editorsTeamId || "").trim();
+  const visitorsTeamId = (env.visitorsTeamId || "").trim();
 
   const membershipIds = memberships.map((membership) =>
     (membership.teamId || "").trim(),
@@ -25,6 +26,10 @@ function resolveRoleFromMemberships(memberships = []) {
 
   if (editorsTeamId && membershipIds.includes(editorsTeamId)) {
     return "editor";
+  }
+
+  if (visitorsTeamId && membershipIds.includes(visitorsTeamId)) {
+    return "visitor";
   }
 
   return membershipIds.length > 0 ? "editor" : "visitor";

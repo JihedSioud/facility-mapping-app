@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../hooks/useAuth.js";
 import { useLanguage } from "../../context/LanguageContext.jsx";
+import { createAccessRequest } from "../../services/appwriteService.js";
 
 export default function AuthPanel() {
   const { login, register, loading, error: authError } = useAuth();
@@ -8,6 +9,7 @@ export default function AuthPanel() {
   const [mode, setMode] = useState("login");
   const [form, setForm] = useState({ email: "", password: "", name: "" });
   const [error, setError] = useState(null);
+  const [accessFeedback, setAccessFeedback] = useState(null);
   const isLogin = mode === "login";
 
   useEffect(() => {
@@ -17,6 +19,7 @@ export default function AuthPanel() {
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError(null);
+    setAccessFeedback(null);
     try {
       if (isLogin) {
         await login({
@@ -36,24 +39,68 @@ export default function AuthPanel() {
     }
   };
 
+  const handleAccessRequest = async () => {
+    setError(null);
+    setAccessFeedback(null);
+    if (!form.email) {
+      setError(t("emailRequired", "Please enter your email to request access."));
+      return;
+    }
+    try {
+      await createAccessRequest({
+        email: form.email,
+        name: form.name,
+      });
+      setAccessFeedback(
+        t(
+          "accessRequested",
+          "Access request submitted. An admin will invite you shortly.",
+        ),
+      );
+    } catch (err) {
+      setError(
+        err?.message ??
+          t("accessRequestFailed", "Unable to submit access request."),
+      );
+    }
+  };
+
   return (
     <div
       className={`rounded-2xl border border-white/10 bg-slate-900/95 p-4 text-sm text-white shadow-2xl shadow-cyan-500/20 ${
         direction === "rtl" ? "text-right" : ""
       }`}
     >
-      <div className="mb-3 flex items-center justify-between">
-        <p className="text-sm font-semibold text-white">
-          {isLogin ? t("signIn", "Sign in") : t("createAccount", "Create account")}
-        </p>
+      <div className="mb-4 flex gap-2">
         <button
           type="button"
-          onClick={() => setMode(isLogin ? "register" : "login")}
-          className="text-[11px] font-semibold uppercase tracking-wide text-cyan-300"
+          onClick={() => {
+            setMode("login");
+            setError(null);
+            setAccessFeedback(null);
+          }}
+          className={`flex-1 rounded-xl px-3 py-2 text-center text-sm font-semibold ${
+            isLogin
+              ? "bg-cyan-600 text-white"
+              : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+          }`}
         >
-          {isLogin
-            ? t("needAccess", "Need access?")
-            : t("haveAccount", "Have an account?")}
+          {t("signIn", "Sign in")}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setMode("register");
+            setError(null);
+            setAccessFeedback(null);
+          }}
+          className={`flex-1 rounded-xl px-3 py-2 text-center text-sm font-semibold ${
+            !isLogin
+              ? "bg-cyan-600 text-white"
+              : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+          }`}
+        >
+          {t("createAccount", "Create account")}
         </button>
       </div>
       <form onSubmit={handleSubmit} className="space-y-3 text-sm">
@@ -116,6 +163,11 @@ export default function AuthPanel() {
             {error}
           </p>
         )}
+        {accessFeedback && (
+          <p className="text-xs text-emerald-300">
+            {accessFeedback}
+          </p>
+        )}
         <button
           type="submit"
           disabled={loading}
@@ -126,6 +178,14 @@ export default function AuthPanel() {
             : isLogin
               ? t("signIn", "Sign in")
               : t("createAccount", "Create account")}
+        </button>
+        <button
+          type="button"
+          disabled={loading}
+          onClick={handleAccessRequest}
+          className="w-full rounded-xl border border-cyan-400/60 px-3 py-2 font-semibold text-cyan-200 transition hover:border-cyan-300 hover:text-cyan-100 disabled:opacity-60"
+        >
+          {t("requestAccess", "Request access")}
         </button>
       </form>
     </div>

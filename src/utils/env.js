@@ -7,10 +7,17 @@ const env = {
   governoratesCollectionId:
     import.meta.env.VITE_APPWRITE_GOVERNORATES_COLLECTION_ID ?? "",
   editsCollectionId: import.meta.env.VITE_APPWRITE_EDITS_COLLECTION_ID ?? "",
+  accessRequestsCollectionId:
+    import.meta.env.VITE_APPWRITE_ACCESS_REQUESTS_COLLECTION_ID ?? "",
   validateFunctionId:
     import.meta.env.VITE_APPWRITE_VALIDATE_FUNCTION_ID ?? "",
   editorsTeamId: import.meta.env.VITE_APPWRITE_EDITORS_TEAM_ID ?? "",
   adminsTeamId: import.meta.env.VITE_APPWRITE_ADMINS_TEAM_ID ?? "",
+  visitorsTeamId: import.meta.env.VITE_APPWRITE_VISITORS_TEAM_ID ?? "",
+  addTeamMembershipUrl:
+    import.meta.env.VITE_APPWRITE_ADD_TEAM_MEMBERSHIP_URL ?? "",
+  addTeamMembershipToken:
+    import.meta.env.VITE_APPWRITE_ADD_TEAM_MEMBERSHIP_TOKEN ?? "",
   listLimit: Number(import.meta.env.VITE_APPWRITE_LIST_LIMIT ?? 500),
 };
 

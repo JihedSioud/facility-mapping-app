@@ -24,7 +24,7 @@ const EMPTY_FORM = {
 
 export default function FacilityForm({ facilityId = null, onSuccess }) {
   const { user } = useAuth();
-  const { t, direction } = useLanguage();
+  const { t, direction, locale } = useLanguage();
   const [form, setForm] = useState(() => ({ ...EMPTY_FORM }));
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
@@ -74,6 +74,14 @@ export default function FacilityForm({ facilityId = null, onSuccess }) {
     [facilityId, t],
   );
 
+  const statusOptions = useMemo(() => {
+    const merged = new Set(statuses.filter(Boolean));
+    if (form.facilityStatus) {
+      merged.add(form.facilityStatus);
+    }
+    return translateStatuses(Array.from(merged), locale);
+  }, [statuses, form.facilityStatus, locale]);
+
   const handleChange = (event) => {
     const { name, value } = event.target;
     setForm((previous) => ({
@@ -87,7 +95,7 @@ export default function FacilityForm({ facilityId = null, onSuccess }) {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    const validation = validateFacility(form);
+    const validation = validateFacility(form, [...new Set([...statuses, form.facilityStatus])]);
     if (Object.keys(validation).length > 0) {
       setErrors(validation);
       return;
@@ -99,12 +107,13 @@ export default function FacilityForm({ facilityId = null, onSuccess }) {
       await saveFacility(form, {
         facilityId,
         userId: user?.$id,
+        userName: user?.name ?? user?.email ?? "",
       });
       setMessage({
         type: "success",
         text: facilityId
-          ? "Facility updated successfully."
-          : "Facility created successfully.",
+          ? "Facility update submitted for review."
+          : "Facility submitted for review.",
       });
       if (!facilityId) {
         setForm({ ...EMPTY_FORM });
@@ -186,7 +195,7 @@ export default function FacilityForm({ facilityId = null, onSuccess }) {
           name="facilityStatus"
           value={form.facilityStatus}
           onChange={handleChange}
-          options={translateStatuses(statuses)}
+          options={statusOptions}
           error={errors.facilityStatus}
         />
         <SelectField
